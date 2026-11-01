@@ -89,7 +89,9 @@
   const ahora = () => { const d = new Date(); return new Date(2026, 11, 31, d.getHours(), d.getMinutes(), d.getSeconds()); };
   function agregarReporte(r) { REPORTES.push(r); S.nuevos.push(r); guardarS(); }
   function modificar(cos, campos) { const r = REPORTES.find(x => x.cos === cos); Object.assign(r, campos); S.cambios[cos] = Object.assign(S.cambios[cos] || {}, campos); guardarS(); return r; }
-  function evento(usuario, accion, objeto, detalle, resultado) { S.eventos.push({ d: ahora().toISOString(), usuario, accion, objeto: objeto || '—', detalle: detalle || '', resultado: resultado || 'Correcto' }); guardarS(); }
+  /* Los eventos se releen antes de escribir para no perder lo registrado en otra pestaña */
+  const releerEventos = () => { try { const g = JSON.parse(localStorage.getItem(CLAVE)); if (g && Array.isArray(g.eventos) && g.eventos.length >= S.eventos.length) S.eventos = g.eventos; } catch (e) {} };
+  function evento(usuario, accion, objeto, detalle, resultado) { releerEventos(); S.eventos.push({ d: new Date().toISOString(), usuario, accion, objeto: objeto || '—', detalle: detalle || '', resultado: resultado || 'Correcto' }); guardarS(); }
   function preferencia(k, v) { if (v === undefined) return S[k]; S[k] = v; guardarS(); }
   /* Sesión iniciada: el rol sale del usuario que entró, no del enlace */
   const CLAVE_SES = 'cosecovi_sesion';
@@ -302,6 +304,7 @@
     add(aFecha('2026-07-21', '13:40'), 'VOC-02', 'Sesión expirada', '—', '15 min sin actividad', 'Cerrada');
     add(aFecha('2026-07-15', '10:20'), 'COORD-01', 'Corrección de reporte', (D.reportes.find(r => r.clave === 'validado') || {}).cos, 'Espacio: Pasillo piso 1 → Pasillo piso 2');
     add(aFecha('2026-09-24', '09:12'), 'COORD-01', 'Corrección de reporte', D.reportes.filter(r => r.clave === 'acoso_prof').pop().cos, 'Tipo de afectado: Personal → Alumno');
+    releerEventos();
     S.eventos.forEach((e, i) => A.push({ i: i + 1, d: new Date(e.d), usuario: e.usuario, rol: USUARIOS[e.usuario] || 'Sistema', accion: e.accion, objeto: e.objeto, detalle: e.detalle, resultado: e.resultado, sesion: true }));
     return A.sort((a, b) => (b.d - a.d) || ((b.i || 0) - (a.i || 0)));
   }
