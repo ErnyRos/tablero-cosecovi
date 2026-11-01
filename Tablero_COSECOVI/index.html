@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iniciar sesión · Tablero COSECOVI ESCOM</title>
+<link rel="stylesheet" href="estilos.css">
+<style>
+  body { min-height: 100vh; display: grid; grid-template-columns: 46% 54%; }
+  .izq { background: var(--guinda); color: #fff; padding: 28px 32px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+  .izq::after { content: ""; position: absolute; right: -120px; top: 45%; width: 340px; height: 340px; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; }
+  .izq::before { content: ""; position: absolute; right: 40px; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.15); }
+  .logo { width: 70px; height: 70px; border: 1.5px solid rgba(255,255,255,.7); border-radius: 12px; display: grid; place-items: center; text-align: center; font-weight: 800; font-size: 12px; }
+  .logo svg { width: 24px; height: 24px; display: block; margin: 0 auto 2px; }
+  .izq small { margin-top: 64px; font-size: 11.5px; font-weight: 800; letter-spacing: .9px; }
+  .izq h1 { font-size: 32px; margin: 14px 0 12px; line-height: 1.2; }
+  .izq p { font-size: 13px; opacity: .9; margin: 0; max-width: 330px; }
+  .izq .lema { margin-top: auto; display: flex; gap: 10px; align-items: center; font-size: 11.5px; opacity: .9; }
+  .izq .lema::before { content: ""; width: 24px; border-top: 2px solid #fff; }
+  .der { display: grid; place-items: center; padding: 24px; }
+  .caja { width: min(390px, 100%); }
+  .form { padding: 26px 28px 28px; border-top: 4px solid var(--guinda); }
+  .form small { font-size: 11px; font-weight: 800; letter-spacing: .8px; color: var(--guinda); }
+  .form h2 { margin: 10px 0 4px; font-size: 24px; }
+  .form > p { margin: 0 0 18px; font-size: 12.5px; color: var(--texto-2); }
+  .ent { position: relative; } .ent svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #7a7075; }
+  .ent input { padding-left: 36px !important; height: 42px; }
+  .mostrar { position: absolute; right: 5px; top: 5px; bottom: 5px; border: none; background: var(--guinda-claro); color: var(--guinda); border-radius: 6px; padding: 0 10px; font-weight: 700; cursor: pointer; }
+  .olvido { text-align: right; font-size: 12px; font-weight: 700; margin: -2px 0 16px; } .olvido a { color: var(--guinda); }
+  .codigo { display: flex; gap: 8px; justify-content: space-between; margin-bottom: 14px; }
+  .codigo input { width: 46px; height: 52px; text-align: center; font-size: 22px; font-weight: 700; border: 1px solid #cfc8cc; border-radius: 8px; }
+  .pie-login { margin-top: 18px; font-size: 12px; text-align: center; }
+  .pie-login b { display: inline-flex; gap: 6px; align-items: center; } .pie-login svg { width: 14px; height: 14px; color: var(--guinda); }
+  .demo { margin-top: 12px; font-size: 11.5px; color: var(--texto-2); text-align: center; }
+</style>
+</head>
+<body>
+<section class="izq">
+  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>IPN</div>
+  <small>COMISIÓN DE SEGURIDAD Y CONTRA LA VIOLENCIA</small>
+  <h1>Tablero COSECOVI · ESCOM</h1>
+  <p>Instituto Politécnico Nacional · Escuela Superior de Cómputo</p>
+  <div class="lema">Seguridad, prevención y atención para nuestra comunidad.</div>
+</section>
+<section class="der"><div class="caja">
+  <div class="tarjeta form" id="paso1">
+    <small>ACCESO INSTITUCIONAL</small><h2>Iniciar sesión</h2><p>Acceso para integrantes de la COSECOVI</p>
+    <div id="msg1"></div>
+    <div class="campo"><label for="usr">Usuario</label><div class="ent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0"/></svg><input id="usr" placeholder="Ingresa tu usuario" autocomplete="username"></div></div>
+    <div class="campo"><label for="pwd">Contraseña</label><div class="ent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="pwd" type="password" placeholder="Ingresa tu contraseña" autocomplete="current-password"><button class="mostrar" id="ver" type="button">Mostrar</button></div></div>
+    <div class="olvido"><a href="#" id="olvido">¿Olvidaste tu contraseña?</a></div>
+    <button class="btn lleno bloque" id="entrar" style="height:46px">Ingresar →</button>
+  </div>
+  <div class="tarjeta form" id="paso2" hidden>
+    <small>VERIFICACIÓN EN DOS PASOS</small><h2>Código de verificación</h2><p id="txt2">Enviamos un código de 6 dígitos a tu correo institucional.</p>
+    <div id="msg2"></div>
+    <div class="codigo" id="codigo">${'<input inputmode="numeric" maxlength="1">'}</div>
+    <button class="btn lleno bloque" id="verificar" style="height:46px">Verificar</button>
+    <div class="olvido" style="text-align:center;margin:14px 0 0"><a href="#" id="reenviar">Reenviar código</a></div>
+    <p class="demo">Prototipo: cualquier código de 6 dígitos.</p>
+  </div>
+  <div class="pie-login"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Acceso restringido a personal autorizado.</b><br><span style="color:var(--texto-2)">La información es confidencial. La sesión expira a los 15 minutos sin uso.</span></div>
+</div></section>
+<script src="datos.js"></script><script src="modelo.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  if (new URLSearchParams(location.search).get('expirada')) $('msg1').innerHTML = '<div class="alerta info">Tu sesión expiró tras 15 minutos sin actividad. Vuelve a iniciar sesión.</div>';
+  let usuario = '';
+  /* Usuarios del prototipo (en producción: hash Argon2 en el servidor de ESCOM) */
+  const USR = { 'PRES-01': 'presidente', 'COORD-01': 'coordinador', 'VOC-01': 'vocal', 'VOC-02': 'vocal' };
+  const PWD = { 'PRES-01': 'Presidente#2026', 'COORD-01': 'Coordina#2026', 'VOC-01': 'Vocal01#2026', 'VOC-02': 'Vocal02#2026' };
+  M.sesion(null);
+  let fallos = 0, rol = null;
+  $('codigo').innerHTML = Array.from({ length: 6 }, () => '<input inputmode="numeric" maxlength="1" aria-label="Dígito">').join('');
+  const cajas = [...$('codigo').querySelectorAll('input')];
+  cajas.forEach((c, i) => { c.oninput = () => { c.value = c.value.replace(/\D/g, ''); if (c.value && cajas[i + 1]) cajas[i + 1].focus(); }; c.onkeydown = e => { if (e.key === 'Backspace' && !c.value && cajas[i - 1]) cajas[i - 1].focus(); }; });
+  $('ver').onclick = () => { const t = $('pwd').type === 'password'; $('pwd').type = t ? 'text' : 'password'; $('ver').textContent = t ? 'Ocultar' : 'Mostrar'; };
+  $('olvido').onclick = e => { e.preventDefault(); $('msg1').innerHTML = '<div class="alerta info">La restauración de contraseña la realiza el responsable técnico de ESCOM.</div>'; };
+  const ir = () => { M.evento(usuario, 'Inicio de sesión', '—', 'Contraseña y código de verificación en dos pasos'); M.sesion({ usuario, rol, inicio: new Date().toISOString() }); location.href = 'vistas/' + (rol === 'vocal' ? '5_reportes.html' : '1_vista_general.html'); };
+  $('entrar').onclick = () => {
+    const u = $('usr').value.trim().toUpperCase();
+    if (fallos >= 5) return;
+    if (!USR[u] || $('pwd').value !== PWD[u]) {
+      fallos++;
+      M.evento(USR[u] ? u : 'Sistema', 'Inicio de sesión', '—', (fallos >= 5 ? '5 intentos fallidos; cuenta bloqueada' : 'Credenciales incorrectas · usuario «' + u + '»'), fallos >= 5 ? 'Bloqueado' : 'Denegado');
+      $('msg1').innerHTML = '<div class="alerta mal">' + (fallos >= 5 ? 'Cuenta bloqueada tras 5 intentos fallidos. El intento quedó en la bitácora automática.' : 'Usuario o contraseña incorrectos. Intento ' + fallos + ' de 5.') + '</div>';
+      if (fallos >= 5) $('entrar').disabled = true; return;
+    }
+    rol = USR[u]; usuario = u;
+    $('paso1').hidden = true; $('paso2').hidden = false; $('txt2').textContent = 'Enviamos un código de 6 dígitos al correo institucional de ' + u + '.'; cajas[0].focus();
+  };
+  $('pwd').onkeydown = e => { if (e.key === 'Enter') $('entrar').click(); };
+  $('verificar').onclick = () => { if (cajas.map(c => c.value).join('').length === 6) ir(); else $('msg2').innerHTML = '<div class="alerta mal">Escribe los 6 dígitos del código.</div>'; };
+  $('reenviar').onclick = e => { e.preventDefault(); $('msg2').innerHTML = '<div class="alerta ok">Código reenviado a tu correo institucional.</div>'; };
+})();
+</script>
+</body>
+</html>

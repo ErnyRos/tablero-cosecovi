@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reportes · Tablero COSECOVI</title>
+<link rel="stylesheet" href="../estilos.css">
+<style>
+  .kpis4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .t-ofi td { vertical-align: top; }
+  .t-ofi .fases { font-size: 11.5px; color: var(--texto-2); line-height: 1.5; }
+  .ct { display: inline-block; font-size: 10.5px; font-weight: 800; background: var(--morado-bg); color: var(--morado); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
+  .var-sube { color: var(--guinda); font-weight: 700; } .var-baja { color: #3c3438; font-weight: 700; }
+  .per-sel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  /* Formulario */
+  .form { padding: 16px; }
+  .bloque { border: 1px solid var(--borde); border-radius: 8px; padding: 12px 14px 4px; margin-bottom: 12px; }
+  .bloque > h3 { margin: 0 0 10px; font-size: 13px; font-weight: 800; color: var(--guinda); letter-spacing: .5px; display: flex; align-items: center; gap: 8px; }
+  .bloque > h3 span { font-weight: 400; color: var(--texto-2); letter-spacing: 0; font-size: 12px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 14px; }
+  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 14px; }
+  .radios { display: flex; gap: 8px; }
+  .radios label { flex: 1; display: flex; align-items: center; gap: 8px; border: 1px solid #cfc8cc; border-radius: 999px; padding: 7px 12px; font-weight: 600; cursor: pointer; font-size: 12.5px; }
+  .radios input { accent-color: var(--guinda); width: auto !important; }
+  .resultados { border: 1px solid var(--borde); border-radius: 6px; max-height: 150px; overflow-y: auto; }
+  .resultados label { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--borde); font-size: 12.5px; cursor: pointer; }
+  .resultados input { accent-color: var(--guinda); }
+</style>
+</head>
+<body>
+<div class="pagina"></div>
+<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script><script src="../graficas.js"></script>
+<script>
+(function () {
+  if (!UI.cabecera('reportes')) return;
+  const I = UI.ICON, ROL = UI.ROL, u = M.u;
+  const pestanas = (UI.rol === 'presidente' ? ['mensual', 'agregar'] : UI.rol === 'vocal' ? ['agregar'] : ['mensual', 'agregar']);
+  let pest = pestanas.includes(new URLSearchParams(location.search).get('sub')) ? new URLSearchParams(location.search).get('sub') : pestanas[0];
+  let comparar = false, pag = 1;
+
+  document.querySelector('.pagina').innerHTML =
+    '<div id="enc"></div>' +
+    (pestanas.length > 1 ? '<div class="subtabs no-imprimir">' + '<button data-p="mensual">' + I.doc + 'Reporte mensual</button><button data-p="agregar">' + I.mas + 'Agregar reporte</button></div>' : '') +
+    '<div id="cont"></div>';
+  const $ = id => document.getElementById(id);
+
+  /* ======================= REPORTE MENSUAL ======================= */
+  const FILTROS = [['tipo', 'Delito', M.TIPOS.map(t => [t, M.corto(t)])], ['modo', 'Modalidad (cómo)', M.MODOS], ['semaforo', 'Semáforo', ['Rojo', 'Amarillo']], ['ambito', 'Ámbito', ['Interno', 'Externo']],
+    ['afectado', 'Tipo de afectado', M.AFECTADOS], ['fase', 'Fase', M.FASES], ['destino', 'Destino de canalización', Object.keys(M.DESTINOS).map(k => [k, M.DESTINO_CORTO[k]])], ['atencion', 'Tipo de atención', ['Inmediata', 'Programada']]];
+  const MESES = M.MESES_DATOS;
+  const selMes = (id, v) => '<select id="' + id + '">' + MESES.map(m => '<option value="' + m + '"' + (m === v ? ' selected' : '') + '>' + u.nombreMes(m) + '</option>').join('') + '</select>';
+
+  function vistaMensual() {
+    const g = UI.filtroGlobal(), iB = MESES.indexOf(g.hasta);
+    $('enc').innerHTML = UI.encabezado('escudo', 'CONCENTRADO INSTITUCIONAL', 'Reporte COSECOVI', 'Reporte mensual único para la COSECOVI de Dirección General y, por su conducto, para Secretaría General.',
+      '<button class="btn" id="xls">' + I.descarga + 'Exportar a Excel</button><button class="btn lleno" id="pdf">' + I.descarga + 'Exportar a PDF</button>');
+    $('cont').innerHTML = '<div class="rej-l"><aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Filtros para reporte') +
+      '<div class="seg" id="modo" style="display:flex;margin-bottom:12px"><button data-m="0" style="flex:1" class="' + (comparar ? '' : 'on') + '">Periodo</button><button data-m="1" style="flex:1" class="' + (comparar ? 'on' : '') + '">' + I.comparar + 'Comparar</button></div>' +
+      (comparar ? '<div class="campo"><label>Periodo A · desde / hasta</label><div class="per-sel">' + selMes('a-d', MESES[Math.max(0, iB - 1)]) + selMes('a-h', MESES[Math.max(0, iB - 1)]) + '</div></div>' +
+        '<div class="campo"><label>Periodo B · desde / hasta</label><div class="per-sel">' + selMes('b-d', g.hasta) + selMes('b-h', g.hasta) + '</div><div class="ayuda">Cada periodo puede ser un mes o un rango, por ejemplo feb–abr contra may–jul.</div></div><div class="sub">Filtros comunes</div>' : '<p class="nota" style="margin:-4px 0 10px">Periodo: <b>' + UI.periodoTexto() + '</b> (barra superior)</p>') +
+      FILTROS.map(f => '<div class="campo"><label for="f-' + f[0] + '">' + f[1] + '</label><select id="f-' + f[0] + '" data-k="' + f[0] + '">' + UI.opts(f[2], new URLSearchParams(location.search).get(f[0]) || '', 'Todos') + '</select></div>').join('') +
+      '<button class="btn bloque" id="limpiar">Limpiar filtros</button></aside><div class="col" id="principal"></div></div>';
+    $('modo').querySelectorAll('button').forEach(b => b.onclick = () => { comparar = b.dataset.m === '1'; vistaMensual(); });
+    $('cont').querySelectorAll('select[data-k], .per-sel select').forEach(s => s.onchange = () => { pag = 1; pintarMensual(); });
+    $('limpiar').onclick = () => { $('cont').querySelectorAll('select[data-k]').forEach(s => s.value = ''); pintarMensual(); };
+    $('xls').onclick = exportarCSV; $('pdf').onclick = () => { M.evento(ROL.clave, 'Exportación', 'Reportes', 'Reporte ' + UI.periodoTexto() + ' · PDF'); window.print(); };
+    pintarMensual();
+  }
+  const criterios = () => { const c = {}; $('cont').querySelectorAll('select[data-k]').forEach(s => { if (s.value) c[s.dataset.k] = s.value; }); return c; };
+
+  function pintarMensual() {
+    if (comparar) return pintarComparar();
+    const L = M.filtrar(Object.assign(UI.filtroGlobal(), criterios())), K = M.metricas(L);
+    const filasCat = M.TIPOS.map(t => ({ t, rs: L.filter(r => r.tipo === t) })).filter(x => x.rs.length);
+    const porPag = 10, vis = L.slice().reverse().slice((pag - 1) * porPag, pag * porPag);
+    $('principal').innerHTML =
+      '<div class="kpis4">' + UI.kpi('escudo', '', 'Total de registros', K.total, K.expedientes + ' expedientes') + UI.kpi('alerta', 'rojo', 'Incidentes rojos', K.rojos) +
+        UI.kpi('alerta', 'amar', 'Incidentes amarillos', K.amarillos) + UI.kpi('mapa', '', 'Zonas reportadas', K.zonasReportadas) + '</div>' +
+      '<div class="kpis4">' + UI.kpi('enviar', 'morado', 'Canalizados del periodo', K.canalizados, 'Por oficio') + UI.kpi('enviar', 'morado', 'COSECOVI Dirección General', K.porDestino.DG) +
+        UI.kpi('enviar', 'morado', 'Consejo Técnico (Comisión de Honor)', K.porDestino.CT) + UI.kpi('enviar', 'morado', 'SSC', K.porDestino.SSC, 'Delitos graves') + '</div>' +
+      '<section class="tarjeta"><div class="tit"><div><small>CONCENTRADO DEL PERIODO · ' + UI.periodoTexto().toUpperCase() + '</small><h2>Información para el reporte oficial</h2></div><span class="etiqueta-gris">Datos sintéticos calibrados</span></div>' +
+        '<div class="t-env"><table class="t t-ofi"><thead><tr><th>Incidente (delito)</th><th class="num">Número de veces que ocurrió</th><th>Fecha(s)</th><th>Hora(s)</th><th>Ubicación general</th><th>Acciones tomadas (Acuerdo COSECOVI)</th><th>Fase</th><th>Canalización · oficio</th></tr></thead><tbody>' +
+        filasCat.map(x => {
+          const rs = x.rs, ub = M.contar(rs, r => r.zona), fs = M.contar(rs, r => r.fase), ofs = rs.filter(r => r.canal);
+          return '<tr><td>' + UI.sem(rs[0].semaforo, '<span><b>' + rs[0].semaforo + '</b><br>' + M.corto(x.t) + '</span>') + '<div style="margin-top:6px">' + UI.ir('delito', { delito: M.grupoDe(x.t) }, 'Analizar') + '</div></td><td class="num"><b style="font-size:15px">' + rs.length + '</b></td>' +
+            '<td>' + rs.slice(0, 3).map(r => u.fmtFC(r.fecha)).join(' · ') + (rs.length > 3 ? ' …' : '') + '</td><td>' + rs.slice(0, 3).map(r => r.hora).join(' · ') + '</td>' +
+            '<td>' + Object.keys(ub).sort((a, b) => ub[b] - ub[a]).slice(0, 2).join(' y ') + '</td><td>' + M.ACCION_CORTA[x.t] + '</td>' +
+            '<td class="fases">' + M.FASES.filter(f => fs[f]).map(f => fs[f] + ' ' + f.replace(' COSECOVI', '').toLowerCase()).join('<br>') + '</td>' +
+            '<td class="fases">' + (ofs.length ? Object.keys(M.DESTINOS).filter(k => ofs.some(r => r.canal[0] === k)).map(k => '<b>' + M.DESTINO_CORTO[k] + '</b>: ' + ofs.filter(r => r.canal[0] === k).map(r => r.canal[1].slice(-3)).join(', ')).join('<br>') + '<br><span>OF-COSECOVI-2026-…</span>' : '—') + '</td></tr>';
+        }).join('') + '</tbody><tfoot><tr><td>Total</td><td class="num">' + K.total + '</td><td colspan="6">' + K.rojos + ' rojos · ' + K.amarillos + ' amarillos · ' + K.canalizados + ' canalizados</td></tr></tfoot></table></div></section>' +
+      '<section class="tarjeta"><div class="tit"><div><small>DETALLE DEL REPORTE MENSUAL</small><h2>Incidentes del periodo</h2><p>Incluye todos los incidentes, sin importar su fase. Los turnados al Consejo Técnico se marcan con <span class="ct">CT</span>.</p></div></div>' +
+        '<div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Incidente</th><th>Ámbito</th><th>Afectado</th><th>Ubicación</th><th>Fase</th><th>Destino · oficio</th></tr></thead><tbody>' +
+        vis.map(r => '<tr><td>' + (UI.enlace('inspeccion', { caso: r.cos }) ? '<a class="cos" href="' + UI.enlace('inspeccion', { caso: r.cos }) + '">' + r.cos + '</a>' : '<b>' + r.cos + '</b>') + '</td><td>' + u.fmtF(r.fecha) + '</td><td>' + r.hora + '</td><td>' + UI.sem(r.semaforo, M.corto(r.tipo)) + '</td><td>' + r.ambito + '</td><td>' + r.afectado + '</td>' +
+          '<td>' + r.zona + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + (r.canal ? M.DESTINO_CORTO[r.canal[0]] + (r.canal[0] === 'CT' ? '<span class="ct">CT</span>' : '') + '<br><span style="font-size:11.5px">' + r.canal[1] + '</span>' : '—') + '</td></tr>').join('') +
+        '</tbody></table></div><div class="pie-tabla"><span>Mostrando ' + (L.length ? (pag - 1) * porPag + 1 : 0) + '–' + Math.min(pag * porPag, L.length) + ' de ' + L.length + ' incidentes</span><div class="paginas" id="pags"></div></div></section>' +
+      '<div class="fila3">' +
+        UI.tarjetaG('RESUMEN', 'Resumen del periodo', '<table class="t"><tbody>' + [['Reportes', K.total], ['Expedientes', K.expedientes], ['% de cierre', K.pctCierre + ' %'], ['Atención inmediata', K.inmediata + ' de ' + K.total],
+          ['1.ª atención promedio', K.primeraAtencionH + ' h'], ['Cierre promedio', K.cierreDias + ' días'], ['Interno / externo', K.interno + ' / ' + K.externo]].map(f => '<tr><td>' + f[0] + '</td><td class="num"><b>' + f[1] + '</b></td></tr>').join('') + '</tbody></table>') +
+        UI.tarjetaG('FLUJO DE ATENCIÓN', 'Reportes por fase', G.dona([{ et: 'En atención COSECOVI', v: K.enAtencion, color: G.COL.atencion }, { et: 'Canalizado', v: K.canalizado, color: G.COL.canal }, { et: 'Cerrado', v: K.cerrado, color: G.COL.cerrado }])) +
+        UI.tarjetaG('CANALIZACIÓN', 'Por destino', G.barras([{ et: 'Dirección General', v: K.porDestino.DG }, { et: 'Consejo Técnico', v: K.porDestino.CT }, { et: 'SSC', v: K.porDestino.SSC }], G.COL.canal, 110) +
+          '<p class="nota" style="margin-top:10px">' + I.enviar + 'El modo de canalización siempre es por oficio.</p>') +
+      '</div>' +
+      '<p class="nota">' + I.alerta + 'El reporte se entrega cada mes a la COSECOVI de Dirección General en PDF o Excel. Al Consejo Técnico solo se le turnan los casos que lo ameritan.</p>';
+    UI.paginar($('pags'), L.length, porPag, pag, p => { pag = p; pintarMensual(); });
+  }
+
+  function pintarComparar() {
+    const c = criterios(), pA = [$('a-d').value, $('a-h').value].sort(), pB = [$('b-d').value, $('b-h').value].sort();
+    const zona = UI.filtroGlobal().zona;
+    const LA = M.filtrar(Object.assign({ desde: pA[0], hasta: pA[1], zona }, c)), LB = M.filtrar(Object.assign({ desde: pB[0], hasta: pB[1], zona }, c));
+    const A = M.metricas(LA), B = M.metricas(LB), nA = u.nombrePeriodo(pA[0], pA[1]), nB = u.nombrePeriodo(pB[0], pB[1]);
+    const r1 = v => Math.round(v * 10) / 10;
+    const fila = (et, a, b, pp) => { const d = r1(b - a); return '<tr><td>' + et + '</td><td class="num">' + a + '</td><td class="num"><b>' + b + '</b></td><td class="num ' + (d > 0 ? 'var-sube' : 'var-baja') + '">' + (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= ') + d + (pp ? ' pp' : '') + '</td><td class="num">' + (pp || !a ? '—' : (d > 0 ? '+' : '') + r1(d / a * 100) + ' %') + '</td></tr>'; };
+    $('principal').innerHTML =
+      '<div class="kpis4">' + UI.kpi('doc', '', 'Reportes · ' + nB, B.total, (B.total - A.total >= 0 ? '▲ +' : '▼ ') + (B.total - A.total) + ' vs ' + nA) + UI.kpi('check', 'verde', '% de cierre · ' + nB, B.pctCierre + ' %', r1(B.pctCierre - A.pctCierre) + ' pp vs ' + nA) +
+        UI.kpi('enviar', 'morado', 'Canalizados · ' + nB, B.canalizados, (B.canalizados - A.canalizados >= 0 ? '+' : '') + (B.canalizados - A.canalizados) + ' vs ' + nA) + UI.kpi('reloj', 'azul', '1.ª atención · ' + nB, B.primeraAtencionH + ' h', r1(B.primeraAtencionH - A.primeraAtencionH) + ' h vs ' + nA) + '</div>' +
+      '<div class="fila2" style="align-items:start">' +
+        '<section class="tarjeta"><div class="tit"><div><small>COMPARACIÓN DE PERIODOS</small><h2>' + nA + ' vs ' + nB + '</h2></div></div><table class="t"><thead><tr><th>Indicador</th><th class="num">A · ' + nA + '</th><th class="num">B · ' + nB + '</th><th class="num">Diferencia</th><th class="num">Variación</th></tr></thead><tbody>' +
+          fila('Reportes', A.total, B.total) + fila('Expedientes', A.expedientes, B.expedientes) + fila('Incidentes rojos', A.rojos, B.rojos) + fila('Incidentes amarillos', A.amarillos, B.amarillos) +
+          fila('En atención COSECOVI', A.enAtencion, B.enAtencion) + fila('Canalizado', A.canalizado, B.canalizado) + fila('Cerrado', A.cerrado, B.cerrado) + fila('% de cierre', A.pctCierre, B.pctCierre, true) +
+          fila('Canalizados', A.canalizados, B.canalizados) + fila('· Dirección General', A.porDestino.DG, B.porDestino.DG) + fila('· Consejo Técnico', A.porDestino.CT, B.porDestino.CT) + fila('· SSC', A.porDestino.SSC, B.porDestino.SSC) +
+          fila('Atención inmediata', A.inmediata, B.inmediata) + fila('1.ª atención promedio (h)', A.primeraAtencionH, B.primeraAtencionH) + fila('Cierre promedio (días)', A.cierreDias, B.cierreDias) +
+          fila('Interno', A.interno, B.interno) + fila('Externo', A.externo, B.externo) + '</tbody></table></section>' +
+        '<div class="col">' + UI.tarjetaG('CONTEOS', 'Periodo A y periodo B', G.pares([['Reportes', 'total'], ['Rojos', 'rojos'], ['Amarillos', 'amarillos'], ['Cerrados', 'cerrado'], ['Canalizados', 'canalizados'], ['Atención inmediata', 'inmediata']].map(x => ({ et: x[0], a: A[x[1]], b: B[x[1]] })), nA, nB)) +
+          '<section class="tarjeta"><div class="tit"><div><small>DESGLOSE</small><h2>Por tipo de incidente</h2></div></div><table class="t"><thead><tr><th>Tipo</th><th class="num">A</th><th class="num">B</th><th class="num">Dif.</th></tr></thead><tbody>' +
+          M.TIPOS.map(t => { const a = LA.filter(r => r.tipo === t).length, b = LB.filter(r => r.tipo === t).length; return '<tr><td>' + UI.sem(LA.concat(LB).find(r => r.tipo === t) ? (['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'Amarillo' : 'Rojo') : 'Rojo', M.corto(t)) + '</td><td class="num">' + a + '</td><td class="num"><b>' + b + '</b></td><td class="num">' + (b - a > 0 ? '+' : '') + (b - a) + '</td></tr>'; }).join('') +
+          '</tbody></table></section></div>' +
+      '</div>';
+  }
+
+  function exportarCSV() {
+    const L = M.filtrar(Object.assign(UI.filtroGlobal(), comparar ? {} : criterios()));
+    const cab = ['No. de reporte', 'Fecha', 'Hora', 'Incidente', 'Semáforo', 'Ámbito', 'Afectado', 'Zona', 'Ubicación', 'Fase', 'Destino', 'Oficio', 'Acciones tomadas (Acuerdo COSECOVI)'];
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const filas = L.map(r => [r.cos, r.fecha, r.hora, r.tipo, r.semaforo, r.ambito, r.afectado, r.zona, r.lugar, r.fase, r.canal ? M.DESTINOS[r.canal[0]] : '', r.canal ? r.canal[1] : '', M.ACCION_CORTA[r.tipo]].map(esc).join(','));
+    const blob = new Blob(['﻿' + cab.map(esc).join(',') + '\n' + filas.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Reporte_COSECOVI_' + UI.periodoTexto().replace(/[^A-Za-z0-9]+/g, '_') + '.csv'; a.click();
+    M.evento(ROL.clave, 'Exportación', 'Reportes', 'Reporte ' + UI.periodoTexto() + ' · Excel');
+    UI.aviso('Exportación lista: ' + L.length + ' incidentes. La acción queda en la bitácora automática.');
+  }
+
+  /* ======================= AGREGAR REPORTE ======================= */
+  const nuevos = [];
+  function vistaAgregar() {
+    const sig = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
+    $('enc').innerHTML = UI.encabezado('doc', 'CAPTURA', 'Agregar reporte', 'Registra un nuevo incidente para integrarlo al expediente de COSECOVI.', UI.restringida());
+    const campo = (id, et, ctrl, req, cls) => '<div class="campo' + (cls ? ' ' + cls : '') + '" id="c-' + id + '"><label for="' + id + '">' + et + (req ? ' <span class="req">*</span>' : '') + '</label>' + ctrl + '<div class="msg-error">Campo obligatorio</div></div>';
+    const sel = (id, arr, ph) => '<select id="' + id + '"><option value="">' + ph + '</option>' + arr.map(x => '<option>' + x + '</option>').join('') + '</select>';
+    $('cont').innerHTML =
+      '<section class="tarjeta form"><div id="msg"></div>' +
+        '<div class="g2">' + campo('num', 'Número de reporte', '<input id="num" disabled value="Se asignará al guardar (' + sig + ')">') +
+          campo('fase0', 'Fase inicial', '<input disabled value="En atención COSECOVI">') + '</div>' +
+        '<div class="bloque"><h3>CUÁNDO</h3><div class="g2">' + campo('fecha', 'Fecha del incidente', '<input type="date" id="fecha" max="2026-12-31">', 1) + campo('hora', 'Hora del incidente', '<input type="time" id="hora">', 1) + '</div></div>' +
+        '<div class="bloque"><h3>QUÉ</h3><div class="g2">' + campo('tipo', 'Tipo de incidente', sel('tipo', M.TIPOS, 'Selecciona un tipo de incidente'), 1) +
+          campo('nivel', 'Nivel de riesgo', '<div class="radios"><label><input type="radio" name="nivel" value="Alto">' + UI.icSem('Rojo') + 'Alto</label><label><input type="radio" name="nivel" value="Medio">' + UI.icSem('Amarillo') + 'Medio</label></div>', 1) + '</div>' +
+          campo('desc', 'Descripción del incidente <span class="cifrado">' + I.candado + 'Dato cifrado</span>', '<textarea id="desc" placeholder="Lo que comentó la persona afectada y una descripción general del hecho, en neutro. No es el Acuerdo COSECOVI."></textarea>', 1) + '</div>' +
+        '<div class="bloque"><h3>CÓMO <span>· la modalidad depende del tipo elegido en Qué, para no repetir lo que ya indica la taxonomía</span></h3><div class="g2">' + campo('modo', 'Modalidad (cómo ocurrió)', '<select id="modo" disabled><option value="">Primero elige el tipo de incidente</option></select>', 1) +
+          '<p class="nota" id="taxo" style="align-self:center"></p></div></div>' +
+        '<div class="bloque"><h3>DÓNDE</h3><div class="g2">' + campo('ambito', 'Ámbito', '<div class="seg" id="ambito" style="display:flex"><button type="button" data-a="Interno" class="on" style="flex:1">Interno</button><button type="button" data-a="Externo" style="flex:1">Externo</button></div>', 1) +
+          campo('zona', 'Macro-zona del mapa', sel('zona', M.ZONAS, 'Selecciona una macro-zona'), 1) + '</div>' +
+          '<div class="g3" id="interno">' + campo('edif', 'Edificio', sel('edif', M.EDIFICIOS, 'Selecciona')) + campo('piso', 'Piso', sel('piso', M.PISOS, 'Selecciona')) + campo('esp', 'Espacio', sel('esp', M.ESPACIOS, 'Selecciona')) + '</div>' +
+          '<div class="g4" id="externo" hidden>' + campo('calle', 'Calle y número', '<input id="calle">') + campo('col', 'Colonia', '<input id="col" value="Lindavista">') + campo('entre', 'Entre calles', '<input id="entre">') + campo('ref', 'Referencia para llegar', '<input id="ref">') + '</div></div>' +
+        '<div class="bloque"><h3>A QUIÉN</h3><div class="g2">' + campo('afect', 'Tipo de afectado', sel('afect', M.AFECTADOS, 'Selecciona'), 1) +
+          campo('pers', 'Persona involucrada <span class="cifrado">' + I.candado + 'Dato cifrado</span>', '<input id="pers" placeholder="Nombre y número de empleado o boleta">') + '</div></div>' +
+        '<div class="bloque"><h3>EXPEDIENTE <span>· si no pertenece a uno existente, el sistema crea uno nuevo al guardar</span></h3><div class="g2">' +
+          campo('pert', '¿Pertenece a un expediente existente?', '<div class="seg" id="pert" style="display:flex"><button type="button" data-v="no" class="on" style="flex:1">No</button><button type="button" data-v="si" style="flex:1">Sí</button></div>') +
+          '<div id="busq-exp" hidden>' + campo('qexp', 'Buscar por número de expediente o persona involucrada', '<div class="buscar">' + I.buscar + '<input id="qexp" placeholder="EXP-2026-0059 o boleta / núm. de empleado"></div>') + '<div class="resultados" id="res-exp"></div></div></div></div>' +
+        '<div class="bloque"><h3>ATENCIÓN</h3><div class="g2">' + campo('aten', 'Tipo de atención', '<div class="radios"><label><input type="radio" name="aten" value="Inmediata">Inmediata (menos de 1 h)</label><label><input type="radio" name="aten" value="Programada">Programada</label></div>', 1) +
+          '<p class="nota" style="align-self:center">' + I.reloj + 'La hora de la primera atención se completa desde la ficha del caso.</p></div></div>' +
+        '<button class="btn lleno bloque" id="guardar" style="padding:12px">Guardar reporte</button>' +
+        '<p class="nota" style="margin-top:8px">' + I.escudo + 'Al guardar, el sistema asigna el número de reporte, crea o liga el expediente y registra tu usuario, fecha y hora en la bitácora de auditoría de solo inserción. El reporte entra directo, sin aprobación.</p>' +
+      '</section>' +
+      '<section class="tarjeta" style="margin-top:14px"><div class="tit"><div><small>LISTADO</small><h2>Reportes capturados en el periodo</h2></div></div><div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Macro-zona</th><th>Tipo de incidente</th><th>Nivel</th><th>Fase</th><th>Expediente</th><th>Registró</th></tr></thead><tbody id="listado"></tbody></table></div>' +
+        '<div class="pie-tabla"><span>Información ficticia para fines de visualización · Acceso registrado en bitácora · Esta vista no es exportable</span><span id="nlist"></span></div></section>';
+
+    if (!ROL.captura) {
+      $('cont').querySelector('.form').querySelectorAll('input, select, textarea, button').forEach(x => x.disabled = true);
+      $('msg').innerHTML = '<div class="alerta info">' + I.candado + '<div>Modo de solo consulta para tu rol (' + ROL.nombre + '). La captura la realizan el coordinador y los vocales de apoyo; aquí puedes revisar el formulario y los reportes capturados.</div></div>';
+    }
+    let ambito = 'Interno', pertenece = false, expSel = null;
+    $('ambito').querySelectorAll('button').forEach(b => b.onclick = () => { ambito = b.dataset.a; $('ambito').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('interno').hidden = ambito !== 'Interno'; $('externo').hidden = ambito === 'Interno'; });
+    $('pert').querySelectorAll('button').forEach(b => b.onclick = () => { pertenece = b.dataset.v === 'si'; $('pert').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('busq-exp').hidden = !pertenece; buscarExp(); });
+    function buscarExp() {
+      const q = $('qexp').value.trim().toLowerCase();
+      const exps = M.expedientes(M.REPORTES).filter(e => !q || e.id.toLowerCase().includes(q) || e.reportes.some(r => r.involucrado.toLowerCase().includes(q))).slice(-8).reverse();
+      $('res-exp').innerHTML = exps.map(e => '<label><input type="radio" name="exp" value="' + e.id + '"' + (e.id === expSel ? ' checked' : '') + '><b>' + e.id + '</b> · ' + e.reportes.length + ' reporte(s) · ' + M.corto(e.ultimo.tipo) + ' · ' + UI.chipFase(e.ultimo.fase) + '</label>').join('') || '<p class="nota" style="padding:8px">Sin coincidencias.</p>';
+      $('res-exp').querySelectorAll('input').forEach(i => i.onchange = () => expSel = i.value);
+    }
+    $('qexp').oninput = buscarExp;
+    /* Qué → Cómo: la modalidad se ajusta al tipo de la taxonomía */
+    $('tipo').onchange = () => {
+      const t = $('tipo').value, m = $('modo');
+      m.disabled = !t;
+      m.innerHTML = t ? '<option value="">Selecciona la modalidad</option>' + M.MODOS_TIPO[t].map(x => '<option>' + x + '</option>').join('') : '<option value="">Primero elige el tipo de incidente</option>';
+      $('taxo').innerHTML = t ? UI.sem(['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'Amarillo' : 'Rojo', 'Taxonomía: ' + M.grupoDe(t) + ' · semáforo ' + (['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'amarillo' : 'rojo')) : '';
+    };
+
+    function listar() {
+      const L = M.filtrar(UI.filtroGlobal()).slice().reverse().slice(0, 8);
+      $('listado').innerHTML = L.map(r => '<tr' + (nuevos.includes(r.cos) ? ' class="sel"' : '') + '><td><a class="cos" href="' + UI.enlace('inspeccion', { caso: r.cos }) + '">' + r.cos + '</a></td><td>' + u.fmtF(r.fecha) + '</td><td>' + r.hora + '</td><td>' + r.zona + '</td><td>' + M.corto(r.tipo) + '</td><td>' + UI.chipNivel(r.nivel) + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + r.exps.join(', ') + '</td><td>' + M.USUARIOS[r.registra] + ' · ' + r.registra + '</td></tr>').join('');
+      $('nlist').textContent = 'Últimos 8 de ' + M.filtrar(UI.filtroGlobal()).length;
+    }
+    listar(); UI.alCambiarPeriodo(listar);
+
+    $('guardar').onclick = () => {
+      const val = id => ($(id) || {}).value, radio = n => (document.querySelector('input[name=' + n + ']:checked') || {}).value;
+      const req = { fecha: val('fecha'), hora: val('hora'), tipo: val('tipo'), nivel: radio('nivel'), desc: val('desc').trim(), modo: val('modo'), zona: val('zona'), afect: val('afect'), aten: radio('aten') };
+      let ok = true;
+      Object.keys(req).forEach(k => { const c = $('c-' + k); c.classList.toggle('error', !req[k]); if (!req[k]) ok = false; });
+      if (pertenece && !expSel) { ok = false; $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Selecciona el expediente al que pertenece el reporte.</div>'; }
+      if (!ok) { M.evento(ROL.clave, 'Guardar reporte', 'Agregar reporte', 'Faltan campos obligatorios: ' + Object.keys(req).filter(k => !req[k]).join(', '), 'Rechazado'); if (!$('msg').innerHTML) $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Revisa los campos marcados en rojo.</div>'; window.scrollTo(0, 0); return; }
+      const dup = M.REPORTES.find(r => r.fecha === req.fecha && r.hora === req.hora && r.tipo === req.tipo);
+      if (dup && !$('guardar').dataset.confirmar) { M.evento(ROL.clave, 'Guardar reporte', 'Agregar reporte', 'Posible duplicado de ' + dup.cos, 'Advertencia'); $('guardar').dataset.confirmar = 1; $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Posible duplicado de ' + dup.cos + ' (misma fecha, hora y tipo). Pulsa Guardar otra vez para confirmar.</div>'; window.scrollTo(0, 0); return; }
+      const cos = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
+      const nExp = new Set(M.REPORTES.flatMap(r => r.exps)).size + 1;
+      const exp = pertenece ? expSel : 'EXP-2026-' + String(nExp).padStart(4, '0');
+      const lugar = ambito === 'Interno' ? [val('edif'), val('piso'), val('esp')].filter(Boolean).join(' · ') || req.zona : (val('calle') || req.zona);
+      const lugId = Object.keys(M.DATOS.lugares).find(k => M.DATOS.lugares[k].zona === req.zona) || 'exp';
+      M.agregarReporte({ cos, fecha: req.fecha, hora: req.hora, tipo: req.tipo, semaforo: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(req.tipo) ? 'Amarillo' : 'Rojo', nivel: req.nivel, modo: req.modo,
+        ambito, zona: req.zona, lugar, lug: lugId, afectado: req.afect, involucrado: val('pers') || 'Persona no identificada', exps: [exp], liga: pertenece, fase: 'En atención COSECOVI', canal: null, at: [req.aten, req.aten === 'Inmediata' ? 30 : 240], cierre: null, sesion: null, registra: ROL.clave });
+      M.evento(ROL.clave, 'Alta de reporte', cos, pertenece ? 'Ligado a ' + exp : 'Expediente ' + exp + ' creado automáticamente');
+      nuevos.push(cos); delete $('guardar').dataset.confirmar;
+      vistaAgregar();
+      $('msg').innerHTML = '<div class="alerta ok">' + I.check + '<div>Reporte <b>' + cos + '</b> guardado en fase En atención COSECOVI y ' + (pertenece ? 'ligado al expediente <b>' + exp + '</b>' : 'con el expediente nuevo <b>' + exp + '</b>') + '. Quedó registrado en la bitácora automática. ' + UI.ir('inspeccion', { caso: cos }, 'Ver su ficha') + '</div></div>';
+    };
+  }
+
+  function mostrar() {
+    document.querySelectorAll('.subtabs button').forEach(b => b.classList.toggle('on', b.dataset.p === pest));
+    pest === 'mensual' ? vistaMensual() : vistaAgregar();
+  }
+  document.querySelectorAll('.subtabs button').forEach(b => b.onclick = () => { pest = b.dataset.p; mostrar(); });
+  UI.alCambiarPeriodo(() => { if (pest === 'mensual') { pag = 1; vistaMensual(); } });
+  mostrar();
+})();
+</script>
+</body>
+</html>

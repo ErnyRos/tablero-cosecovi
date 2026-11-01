@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recomendaciones · Tablero COSECOVI</title>
+<link rel="stylesheet" href="../estilos.css">
+<style>
+  .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .rec { border-top: 3px solid var(--rojo-solido); overflow: hidden; }
+  .rec.amar { border-top-color: var(--amarillo-solido); }
+  .rec-cab { background: #fdf4f5; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
+  .rec.amar .rec-cab { background: #fffaea; }
+  .rec-cab h3 { margin: 8px 0 2px; font-size: 17px; }
+  .rec-cab p { margin: 0; font-size: 12px; color: var(--texto-2); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; background: #fff; }
+  .datos-rec { display: flex; gap: 14px; font-size: 12px; margin-top: 8px; color: var(--texto); }
+  .datos-rec b { color: var(--guinda); }
+  .acc { display: flex; gap: 8px; align-items: center; padding: 7px 14px; border-top: 1px solid var(--borde); font-size: 12.5px; }
+  .acc:first-child { border-top: none; }
+  .acc i { width: 16px; height: 16px; border-radius: 50%; background: var(--guinda); color: #fff; display: grid; place-items: center; font-size: 10px; font-style: normal; flex: none; }
+  .rec.amar .acc i { background: var(--amarillo-solido); color: #3a2a00; }
+  .enfoques { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .enfoque { border: 1px solid var(--borde); border-radius: 8px; padding: 10px 12px; font-size: 12px; background: #faf8f9; }
+  .enfoque.princ { border-left: 3px solid var(--guinda); }
+  .enfoque b { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .canal { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--borde); font-size: 12.5px; font-weight: 600; }
+  .canal input { accent-color: var(--guinda); width: 16px; height: 16px; }
+  .zonas-v { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .zv { border: 1px solid; border-top-width: 3px; border-radius: 8px; overflow: hidden; font-size: 12.5px; }
+  .zv-cab { padding: 10px 12px; display: flex; gap: 8px; align-items: center; }
+  .zv-cab small { display: block; font-size: 11px; font-weight: 800; }
+  .zv div.n { display: flex; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--borde); background: #fff; }
+  .zv div.n b { width: 24px; height: 20px; border-radius: 4px; color: #fff; display: grid; place-items: center; font-size: 11.5px; }
+  .zv.v { border-color: #9fcdb3; } .zv.v .zv-cab { background: var(--verde-bg); color: var(--verde); } .zv.v b { background: #1f6b48; }
+  .zv.a { border-color: #ecc979; } .zv.a .zv-cab { background: #fff6dd; color: var(--amarillo); } .zv.a b { background: #9a5b00; }
+  .zv.r { border-color: #e6a9ae; } .zv.r .zv-cab { background: var(--rojo-bg); color: var(--rojo); } .zv.r b { background: #a51d2a; }
+</style>
+</head>
+<body>
+<div class="pagina"></div>
+<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script><script src="../escalas.js"></script>
+<script>
+(function () {
+  if (!UI.cabecera('recomendaciones')) return;
+  const I = UI.ICON;
+  const REC = [
+    { grupos: ['Robos con o sin violencia'], titulo: 'Robos con o sin violencia', sem: 'Rojo', sub: 'Prioridad en accesos, estacionamiento y trayectos sobre Av. Juan de Dios Bátiz.',
+      acc: ['Reforzar vigilancia en horarios críticos.', 'Mejorar la iluminación de la zona.', 'Realizar campañas de prevención de robo.', 'Coordinar acciones con el jefe de cuadrante de la SSC.'] },
+    { grupos: ['Extorsión'], titulo: 'Extorsión', sem: 'Rojo', sub: 'Atención a reportes telefónicos, digitales y presenciales en el entorno del plantel.',
+      acc: ['Difundir los canales institucionales de denuncia.', 'Impulsar campañas de concientización sobre riesgos.', 'Solicitar apoyo de la Oficina del Abogado General.', 'Escalar el caso a la autoridad competente.'] },
+    { grupos: ['Acoso', 'Ciberacoso'], titulo: 'Acoso / Ciberacoso', sem: 'Rojo', sub: 'Acciones de atención confidencial para espacios físicos y canales digitales.',
+      acc: ['Activar los protocolos de la Red de Género.', '<a href="#violentometro"><b>Difundir el Violentómetro y el Acosómetro.</b></a>', 'Canalizar a las instancias correspondientes del IPN.', 'Dar seguimiento y acompañamiento a la persona afectada.'] },
+    { grupos: ['Delitos contra la salud', 'Violencia'], titulo: 'Delitos contra la salud / Violencia', sem: 'Amarillo', sub: 'Prevención focalizada en áreas comunes, estacionamiento y perímetro escolar.',
+      acc: ['Aplicar estrategias de prevención y concientización.', 'Realizar campañas sobre consumo de sustancias.', 'Mantener monitoreo en zonas de riesgo.', 'Coordinar acciones con seguridad interna.'] }
+  ];
+
+  document.querySelector('.pagina').innerHTML =
+    UI.encabezado('escudo', 'ACCIONES PREVENTIVAS', 'Motor de recomendaciones', 'Estrategias sugeridas con base en el tipo de delito, el nivel de riesgo y el contexto. Basadas en el Reglamento Interno del IPN y los lineamientos de la COSECOVI.',
+      '<a class="btn" href="#violentometro" style="text-decoration:none;background:var(--guinda-claro)">' + I.usuarios + 'Recurso para personal COSECOVI</a>') +
+    '<div class="rej-l">' +
+      '<aside class="tarjeta panel">' + UI.panelTit('PERSONALIZA LA CONSULTA', 'Filtros') +
+        '<div class="campo"><label for="f-grupo">Delito</label><select id="f-grupo">' + UI.opts(REC.map(r => r.titulo), '', 'Todos los delitos') + '</select></div>' +
+        '<div class="campo"><label for="f-nivel">Nivel de riesgo</label><select id="f-nivel">' + UI.opts([['Rojo', 'Riesgo alto'], ['Amarillo', 'Riesgo medio']], '', 'Todos los niveles') + '</select></div>' +
+        '<button class="btn bloque" id="limpiar">Limpiar filtros</button>' +
+        '<div class="clave"><div class="niv">' + I.alerta + 'Uso orientativo</div><p style="margin:0;color:var(--texto-2)">La recomendación final debe considerar el contexto y los protocolos aplicables.</p></div>' +
+      '</aside>' +
+      '<div class="col">' +
+        '<div class="tit" style="padding:0"><div><small>ESTRATEGIAS POR DELITO</small><h2>Recomendaciones sugeridas</h2></div><span class="etiqueta-gris" id="nres"></span></div>' +
+        '<div class="tarjetas" id="tarjetas"></div>' +
+        '<div style="display:grid;grid-template-columns:1.6fr 1fr;gap:14px">' +
+          UI.tarjetaG('CRITERIO DE ACTUACIÓN', 'Enfoque', '<div class="enfoques"><div class="enfoque princ"><b>Preventivo <span class="etiqueta-gris" style="color:var(--guinda)">Principal</span></b>Estrategias de concientización y difusión para reducir factores de riesgo antes de que ocurra un incidente.</div>' +
+            '<div class="enfoque"><b>Correctivo</b>Se solicita al jefe de cuadrante de la SSC mediante el formato oficial, dejando constancia de la acción y su seguimiento.</div></div>') +
+          UI.tarjetaG('ALCANCE DE CAMPAÑA', 'Canales de difusión', '<p class="nota" style="margin:0 0 6px">Selecciona los canales recomendados</p>' +
+            '<label class="canal"><input type="checkbox" checked>Pantallas de la escuela</label><label class="canal"><input type="checkbox" checked>Redes oficiales de ESCOM</label><label class="canal"><input type="checkbox">Páginas oficiales en Google</label><p class="nota" id="canales-txt" style="margin-top:8px"></p>') +
+        '</div>' +
+        '<section class="tarjeta" id="violentometro"><div class="tit"><div><small>RECURSO DE CONSULTA</small><h2>Violentómetro y Acosómetro (Red de Género)</h2><p>Consulta señales concretas para apoyar la prevención, detección y canalización. La gravedad aumenta conforme avanza la escala.</p></div></div>' +
+          '<div class="cuerpo"><div class="zonas-v">' +
+          [['v', 'NIVELES 1–11', '¡Ten cuidado! La violencia aumentará', [1, 6, 11], '✓'], ['a', 'NIVELES 12–21', '¡Reacciona! ¡No te dejes destruir!', [12, 17, 21], '▲'], ['r', 'NIVELES 22–30', '¡Necesitas ayuda profesional!', [22, 26, 30], '!']].map(z =>
+            '<div class="zv ' + z[0] + '"><div class="zv-cab"><b style="border-radius:50%;width:22px;height:22px;display:grid;place-items:center;color:#fff">' + z[4] + '</b><div><small>' + z[1] + '</small>' + z[2] + '</div></div>' +
+            z[3].map(n => '<div class="n"><b>' + n + '</b>' + ESCALAS.violentometro.niveles[n] + '</div>').join('') + '</div>').join('') +
+          '</div><div style="display:flex;gap:10px;justify-content:center;margin-top:14px"><a class="btn lleno" href="#tarjetas" style="text-decoration:none">Estrategia preventiva recomendada ' + I.flecha + '</a>' +
+          '<a class="btn lleno" href="3_violentometro.html' + location.search + '" style="text-decoration:none">Ver escala completa ' + I.flecha + '</a></div></div></section>' +
+      '</div>' +
+    '</div>';
+
+  const $ = id => document.getElementById(id);
+  const pg = new URLSearchParams(location.search).get('grupo');
+  if (pg) { const r = REC.find(x => x.grupos.includes(pg)); if (r) $('f-grupo').value = r.titulo; }
+  /* Canales de difusión: la selección se conserva */
+  const canales = [...document.querySelectorAll('.canal input')];
+  const guardados = M.preferencia('canales'); if (guardados) canales.forEach((c, i) => c.checked = guardados[i]);
+  const resumenCanales = () => { const n = canales.filter(c => c.checked).length; $('canales-txt').textContent = n + ' de 3 canales seleccionados para difundir la estrategia.'; };
+  canales.forEach(c => c.onchange = () => { M.preferencia('canales', canales.map(x => x.checked)); resumenCanales(); });
+  function pintar() {
+    const L = M.filtrar(UI.filtroGlobal()), g = $('f-grupo').value, n = $('f-nivel').value;
+    const vis = REC.filter(r => (!g || r.titulo === g) && (!n || r.sem === n));
+    $('nres').textContent = vis.length + ' resultados';
+    $('tarjetas').innerHTML = vis.map(r => {
+      const rs = L.filter(x => r.grupos.includes(M.grupoDe(x.tipo)));
+      const zonas = M.contar(rs, x => x.zona), top = rs.length ? M.mayor(zonas) : '—';
+      const rojo = r.sem === 'Rojo';
+      return '<section class="tarjeta rec' + (rojo ? '' : ' amar') + '"><div class="rec-cab"><span class="tag" style="color:' + (rojo ? 'var(--rojo)' : 'var(--amarillo)') + '">' + UI.icSem(r.sem) + (rojo ? 'Riesgo alto · Atención mayor' : 'Riesgo medio · Atención preventiva') + '</span>' +
+        '<h3>' + r.titulo + '</h3><p>' + r.sub + '</p><div class="datos-rec"><span>En el periodo: <b>' + rs.length + ' incidentes</b></span><span>Zona principal: <b>' + top + '</b></span></div></div>' +
+        r.acc.map(a => '<div class="acc"><i>✓</i>' + a + '</div>').join('') + '<div class="atajos-ir" style="padding:10px 14px;border-top:1px solid var(--borde)">' + r.grupos.map(gr => UI.ir('delito', { delito: gr }, 'Analizar ' + gr.toLowerCase())).join('') + UI.ir('inspeccion', { grupo: r.grupos[0] }, 'Ver casos') + '</div></section>';
+    }).join('') || '<p class="nota">Sin recomendaciones con estos filtros.</p>';
+  }
+  ['f-grupo', 'f-nivel'].forEach(id => $(id).onchange = pintar);
+  $('limpiar').onclick = () => { $('f-grupo').value = ''; $('f-nivel').value = ''; pintar(); };
+  UI.alCambiarPeriodo(pintar);
+  pintar(); resumenCanales();
+})();
+</script>
+</body>
+</html>

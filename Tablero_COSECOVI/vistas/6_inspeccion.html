@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspección de casos particulares · Tablero COSECOVI</title>
+<link rel="stylesheet" href="../estilos.css">
+<style>
+  .rej-i { display: grid; grid-template-columns: 210px minmax(0,1fr) 370px; gap: 14px; align-items: start; }
+  .ficha { position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow-y: auto; }
+  .ficha-cab { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
+  .ficha-cab h2 { margin: 0; font-size: 15px; }
+  .ficha .subtabs { margin: 0; padding: 0 8px; }
+  .ficha .subtabs button { padding: 9px 10px; font-size: 12.5px; }
+  .blq { border-bottom: 1px solid var(--borde); padding: 10px 14px; }
+  .blq h3 { margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: .6px; color: var(--guinda); }
+  .dato { display: grid; grid-template-columns: 112px 1fr; gap: 8px; font-size: 12.5px; padding: 3px 0; }
+  .dato dt { font-weight: 700; color: #3c3438; } .dato dd { margin: 0; min-width: 0; }
+  .acuerdo { font-size: 12px; background: #faf8f9; border: 1px solid var(--borde); border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
+  .acuerdo ol { margin: 0; padding-left: 18px; } .acuerdo li { margin: 3px 0; }
+  .botones { display: flex; gap: 8px; padding: 12px 14px; }
+  .botones .btn { flex: 1; font-size: 12px; padding: 8px 6px; }
+  #kpis { grid-template-columns: repeat(5, minmax(0,1fr)); }
+  #kpis .kpi { padding: 10px; } #kpis .kpi-ico { display: none; }
+  #tabla td:first-child, #tabla td:nth-child(2) { white-space: nowrap; } #tabla .chip { white-space: normal; }
+  .mini { font-size: 11.5px; color: var(--texto-2); }
+  .lista-exp button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 6px; border: none; border-bottom: 1px solid var(--borde); background: #fff; padding: 8px 0; cursor: pointer; text-align: left; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="pagina"></div>
+<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script><script src="../graficas.js"></script>
+<script>
+(function () {
+  if (!UI.cabecera('inspeccion')) return;
+  const I = UI.ICON, u = M.u, ROL = UI.ROL, gestiona = ROL.gestiona;
+  const qs = new URLSearchParams(location.search);
+  let sel = qs.get('caso') || M.CASO_VALIDADO, fichaTab = 'ficha', pag = 1, revelado = {};
+  const MED_AL = ['Ninguna', 'Cambio de grupo', 'Apoyo psicológico', 'Suspensión temporal', 'Dado de baja', 'Turnado a la Comisión de Honor'];
+  const MED_PR = ['Ninguna', 'Cambio de grupo', 'Reducción de horas de clase', 'Dado de baja de la materia', 'Turnado a la Comisión de Honor'];
+
+  document.querySelector('.pagina').innerHTML =
+    UI.encabezado('doc', 'TRAZABILIDAD Y SEGUIMIENTO', 'Inspección de casos particulares', 'Consulta el expediente de un caso, sus reportes ligados y la ruta completa desde el registro hasta el cierre.' + (gestiona ? '' : ' Modo de solo consulta.'), UI.restringida()) +
+    '<div class="rej-i">' +
+      '<aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Buscar y filtrar') +
+        '<div class="campo"><label for="q-cos">Buscar por número de reporte</label><div class="buscar">' + I.buscar + '<input id="q-cos" placeholder="COS-2026-00XX"></div></div>' +
+        '<div class="campo"><label for="q-exp">Buscar por expediente</label><div class="buscar">' + I.buscar + '<input id="q-exp" placeholder="EXP-2026-00XX"></div><div class="ayuda">Enter abre el expediente con sus reportes.</div></div>' +
+        '<input type="checkbox" id="agrupar" hidden>' +
+        '<div class="sub">Filtros combinables</div><div id="extra"></div>' +
+        [['tipo', 'Tipo de incidente', M.TIPOS.map(t => [t, M.corto(t)])], ['modo', 'Modalidad (cómo)', M.MODOS], ['nivel', 'Nivel de riesgo', ['Alto', 'Medio']], ['fase', 'Fase', M.FASES], ['destino', 'Destino de canalización', Object.keys(M.DESTINOS).map(k => [k, M.DESTINO_CORTO[k]])],
+          ['ambito', 'Ámbito', ['Interno', 'Externo']], ['afectado', 'Tipo de afectado', M.AFECTADOS], ['atencion', 'Tipo de atención', ['Inmediata', 'Programada']]]
+          .map(f => '<div class="campo"><label for="f-' + f[0] + '">' + f[1] + '</label><select id="f-' + f[0] + '" data-k="' + f[0] + '">' + UI.opts(f[2], '', 'Todos') + '</select></div>').join('') +
+        '<div class="campo"><label for="f-persona">Persona involucrada <span class="cifrado">' + I.candado + '</span></label><input id="f-persona" placeholder="Boleta o núm. de empleado"></div>' +
+        '<button class="btn bloque" id="limpiar">Limpiar filtros</button>' +
+      '</aside>' +
+      '<div class="col">' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:12.5px">Inspeccionar por:</b><div class="seg" id="modoIns"><button data-v="casos">' + I.doc + 'Casos (reportes)</button><button data-v="exp">' + I.carpeta + 'Expedientes</button></div>' +
+        '<span class="nota" id="ayudaModo"></span></div>' +
+        '<div class="kpis" id="kpis"></div>' +
+        '<section class="tarjeta"><div class="t-env"><table class="t" id="tabla"></table></div><div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div>' +
+          '<div class="pie-tabla"><span class="nota">' + I.candado + 'Acceso registrado en bitácora · Esta vista no es exportable</span></div></section>' +
+        '<section class="tarjeta" id="detExp" hidden></section>' +
+        '<div class="fila2" id="stats"></div>' +
+      '</div>' +
+      '<aside class="tarjeta ficha" id="ficha"></aside>' +
+    '</div>';
+
+  const $ = id => document.getElementById(id);
+  const EXTRA = {}; ['lugar', 'grupo'].forEach(k => { if (qs.get(k)) EXTRA[k === 'lugar' ? 'lug' : k] = qs.get(k); });
+  function chipsExtra() {
+    const t = Object.keys(EXTRA).map(k => '<span class="chip-filtro">' + (k === 'lug' ? 'Lugar: ' + M.DATOS.lugares[EXTRA[k]].nombre.split(' · ')[0] : 'Delito: ' + EXTRA[k]) + ' <a href="#" data-quitar="' + k + '">×</a></span>').join(' ');
+    $('extra').innerHTML = t; $('extra').querySelectorAll('[data-quitar]').forEach(a => a.onclick = e => { e.preventDefault(); delete EXTRA[a.dataset.quitar]; chipsExtra(); pag = 1; pintarTabla(); });
+  }
+  const criterios = () => { const c = Object.assign({}, EXTRA); document.querySelectorAll('select[data-k]').forEach(s => { if (s.value) c[s.dataset.k] = s.value; }); if ($('f-persona').value) c.persona = $('f-persona').value; return c; };
+  const lista = () => { let L = M.filtrar(Object.assign(UI.filtroGlobal(), criterios())); const q = $('q-cos').value.trim().toUpperCase(); if (q) L = L.filter(r => r.cos.includes(q)); const e = $('q-exp').value.trim().toUpperCase(); if (e) L = L.filter(r => r.exps.some(x => x.includes(e))); return L; };
+
+  function pintarTabla() {
+    const L = lista(), K = M.metricas(L), agr = $('agrupar').checked, porPag = 10;
+    document.querySelectorAll('#modoIns button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'exp') === agr));
+    $('ayudaModo').textContent = agr ? 'Busca por número de expediente o por persona involucrada en el panel izquierdo; selecciona uno para ver todos sus casos.' : 'Cada fila es un reporte (COS); su expediente aparece a la derecha.';
+    const EX = M.expedientes(L), abierto = e => e.reportes.some(r => r.fase !== 'Cerrado');
+    if (agr) $('kpis').innerHTML = UI.kpi('carpeta', '', 'Expedientes', EX.length, K.total + ' reportes en el periodo') +
+      UI.kpi('alerta', 'rojo', 'Con reincidencia', EX.filter(e => e.reportes.length > 1).length, 'Más de un reporte') +
+      UI.kpi('reloj', 'azul', 'Expedientes abiertos', EX.filter(abierto).length, 'Con algún reporte sin cerrar') +
+      UI.kpi('check', 'verde', 'Expedientes cerrados', EX.filter(e => !abierto(e)).length, 'Todos sus reportes cerrados') +
+      UI.kpi('doc', '', 'Reportes por expediente', EX.length ? Math.round(EX.reduce((s, e) => s + e.reportes.length, 0) / EX.length * 10) / 10 : 0, 'Promedio');
+    else $('kpis').innerHTML = UI.kpi('doc', '', 'Total de casos', K.total, K.expedientes + ' expedientes') + UI.kpi('alerta', 'rojo', 'Casos de alto riesgo', K.alto) + UI.kpi('alerta', 'amar', 'Casos de riesgo medio', K.medio) +
+      UI.kpi('reloj', 'azul', '1.ª atención promedio', K.primeraAtencionH + ' h', K.inmediata + ' inmediatas') + UI.kpi('check', 'verde', 'Cierre promedio', K.cierreDias + ' días', K.pctCierre + ' % cerrados');
+    let filas, total;
+    if (agr) {
+      const ex = M.expedientes(L).sort((a, b) => b.reportes.length - a.reportes.length || (a.id < b.id ? 1 : -1)); total = ex.length;
+      $('tabla').innerHTML = '<thead><tr><th>Expediente</th><th class="num">Reportes</th><th>Tipo(s) de incidente</th><th>Persona involucrada</th><th>Periodo de los reportes</th><th>Estado</th></tr></thead><tbody>' +
+        ex.slice((pag - 1) * porPag, pag * porPag).map(e => { const ab = e.reportes.filter(r => r.fase !== 'Cerrado').length;
+          return '<tr class="clic' + (sel === e.id ? ' sel' : '') + '" data-id="' + e.id + '"><td><span class="cos">' + e.id + '</span>' + (e.reportes.length > 1 ? '<br><span class="chip np n-alto" style="margin-top:3px">Reincidencia</span>' : '') + '</td>' +
+            '<td class="num"><b style="font-size:15px">' + e.reportes.length + '</b></td><td>' + [...new Set(e.reportes.map(r => M.corto(r.tipo)))].join(', ') + '</td>' +
+            '<td>' + (e.reportes[0].involucrado === 'Persona no identificada' ? '<span class="mini">No identificada</span>' : '<span class="cifrado">' + I.candado + 'Cifrada</span>') + '</td>' +
+            '<td>' + u.fmtFC(e.reportes[0].fecha) + (e.reportes.length > 1 ? ' – ' + u.fmtF(e.ultimo.fecha) : ' ' + e.ultimo.fecha.slice(0, 4)) + '</td>' +
+            '<td>' + (ab ? '<span class="chip f-atencion">' + ab + ' abierto' + (ab > 1 ? 's' : '') + '</span>' : '<span class="chip f-cerrado">Cerrado</span>') + '</td></tr>'; }).join('') + '</tbody>';
+    } else {
+      total = L.length; const vis = L.slice().reverse().slice((pag - 1) * porPag, pag * porPag);
+      $('tabla').innerHTML = '<thead><tr><th>Número de reporte</th><th>Fecha y hora</th><th>Tipo · macro-zona</th><th>Nivel</th><th>Fase</th><th>Expediente</th></tr></thead><tbody>' +
+        vis.map(r => '<tr class="clic' + (sel === r.cos ? ' sel' : '') + '" data-id="' + r.cos + '"><td><span class="cos">' + r.cos + '</span></td><td>' + u.fmtF(r.fecha) + '<br><span class="mini">' + r.hora + '</span></td>' +
+          '<td>' + M.corto(r.tipo) + '<br><span class="mini">' + r.zona + '</span></td><td>' + UI.chipNivel(r.nivel) + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + r.exps.map(e => '<button class="chip-exp" data-exp="' + e + '">' + e + '</button>').join(' ') + '</td></tr>').join('') + '</tbody>';
+    }
+    $('conteo').textContent = 'Mostrando ' + (total ? (pag - 1) * porPag + 1 : 0) + '–' + Math.min(pag * porPag, total) + ' de ' + total + (agr ? ' expedientes' : ' casos');
+    UI.paginar($('pags'), total, porPag, pag, p => { pag = p; pintarTabla(); });
+    $('tabla').querySelectorAll('tr.clic').forEach(tr => tr.onclick = e => { const x = e.target.closest('[data-exp]'); seleccionar(x ? x.dataset.exp : tr.dataset.id); });
+    pintarDetalleExp();
+
+    const top = M.expedientes(L).sort((a, b) => b.reportes.length - a.reportes.length).slice(0, 5);
+    $('stats').innerHTML = UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
+        '<p class="nota" style="margin-top:8px">' + I.reloj + 'Primera atención promedio ' + K.primeraAtencionH + ' h · cierre promedio ' + K.cierreDias + ' días</p>') +
+      UI.tarjetaG('REINCIDENCIA', 'Expedientes con más reportes', '<div id="topexp">' + G.barras(top.map(e => ({ et: e.id, v: e.reportes.length })), G.COL.guinda, 110) + '</div><p class="nota" style="margin-top:6px">' + I.carpeta + 'Selecciona un expediente para ver su ruta.</p>');
+    $('topexp').querySelectorAll('.barra').forEach((b, i) => { b.style.cursor = 'pointer'; b.onclick = () => seleccionar(top[i].id); });
+  }
+
+  const fila = (k, v) => '<div class="dato"><dt>' + k + '</dt><dd>' + v + '</dd></div>';
+  const persona = (r) => revelado[r.cos] ? r.involucrado + ' <span class="cifrado">' + I.candado + 'Visible por tu rol</span>' :
+    '<span class="cifrado">' + I.candado + 'Dato cifrado</span> <button class="chip-exp" data-revelar="' + r.cos + '">Mostrar</button>';
+  function linea(ev) {
+    const ico = { registro: I.doc, liga: I.carpeta, atencion: I.reloj, accion: I.alerta, canal: I.enviar, respuesta: I.enviar, cierre: I.check, pendiente: I.reloj };
+    return '<div class="linea">' + ev.map(e => '<div class="ev t-' + e.tipo + '"><div class="ev-pt">' + ico[e.tipo] + '</div><strong>' + e.titulo + '</strong><span class="f">' + (e.d ? u.fmtFH(e.d) : 'Sin fecha') + '</span>' +
+      '<p>' + e.detalle + '</p>' + (e.usuario ? '<div class="q">' + e.cos + ' · ' + e.usuario + '</div>' : '') + '</div>').join('') + '</div>';
+  }
+
+  function pintarFicha() {
+    const F = $('ficha');
+    if (sel.startsWith('EXP')) {
+      const rs = M.reportesDeExp(sel); if (!rs.length) { F.innerHTML = '<div class="blq">No existe el expediente ' + sel + '.</div>'; return; }
+      F.innerHTML = '<div class="ficha-cab"><div><span class="mini">Expediente</span><h2>' + sel + ' · ' + rs.length + ' reporte' + (rs.length > 1 ? 's' : '') + '</h2></div><button class="x" id="cerrarF">×</button></div>' +
+        '<div class="blq"><h3>REPORTES LIGADOS</h3><div class="lista-exp">' + rs.map(r => '<button data-id="' + r.cos + '"><span><b style="color:var(--enlace)">' + r.cos + '</b><br><span class="mini">' + u.fmtF(r.fecha) + ' · ' + M.corto(r.tipo) + '</span></span>' + UI.chipFase(r.fase) + '</button>').join('') + '</div>' +
+        fila('Persona involucrada', persona(rs[0])) + '</div>' +
+        '<div class="blq" style="border:none"><h3>RUTA DEL EXPEDIENTE</h3>' + linea(M.rutaDe(rs)) + '</div>';
+      F.querySelectorAll('.lista-exp button').forEach(b => b.onclick = () => seleccionar(b.dataset.id));
+    } else {
+      const r = M.REPORTES.find(x => x.cos === sel); if (!r) { F.innerHTML = '<div class="blq">No existe el reporte ' + sel + '.</div>'; return; }
+      const A = M.acuerdo(r), pend = r.canal && !r.canal[3];
+      const ficha = '<div class="blq"><h3>INCIDENTE</h3>' + fila('Tipo', UI.sem(r.semaforo, M.corto(r.tipo))) + fila('Fecha y hora', u.fmtF(r.fecha) + ', ' + r.hora) + fila('Nivel de riesgo', UI.chipNivel(r.nivel)) +
+          fila('Modalidad', r.modo) + fila('Dónde', r.ambito + ' · ' + r.zona + '<br><span class="mini">' + r.lugar + '</span>') + fila('Afectado', r.afectado) + fila('Persona involucrada', persona(r)) +
+          fila('Descripción', revelado[r.cos] ? '<span style="font-size:12px">' + M.descripcion(r) + '</span>' : '<span class="cifrado">' + I.candado + 'Dato cifrado</span>') +
+          fila('Primera atención', r.at[0] + ' · ' + u.fmtDur(r.at[1])) + '</div>' +
+        '<div class="blq"><h3>EXPEDIENTE</h3>' + fila('Expediente', r.exps.map(e => '<button class="chip-exp" data-exp="' + e + '">' + e + '</button>').join(' ')) +
+          fila('Reportes ligados', r.exps.map(e => M.reportesDeExp(e).length).reduce((a, b) => a + b, 0) + ' en total') + fila('Fase', UI.chipFase(r.fase)) + '</div>' +
+        '<div class="blq"><h3>CANALIZACIÓN</h3>' + (r.canal ? fila('Destino', M.DESTINOS[r.canal[0]]) + fila('Fecha', u.fmtF(r.canal[2])) + fila('Oficio', r.canal[1]) +
+          fila('Respuesta', r.canal[3] ? u.fmtF(r.canal[3][0]) + '<br><span style="font-size:12px">' + r.canal[3][1] + '</span>' : '<span class="chip np n-medio">Pendiente</span>' + (gestiona ? ' <button class="chip-exp" id="resp">Registrar respuesta</button>' : '')) : '<p class="mini" style="margin:0">Sin canalización.</p>') + '</div>' +
+        '<div class="blq"><h3>CIERRE Y ACUERDO COSECOVI</h3>' + (A ? fila('Fecha de cierre', u.fmtF(r.cierre) + ' · ' + Math.round((u.aFecha(r.cierre) - u.aFecha(r.fecha)) / 864e5) + ' días') + fila('Sesión', A.sesion) +
+          '<div class="acuerdo"><b>Acuerdo COSECOVI</b><ol>' + A.pasos.map(p => '<li><b>' + p[0] + '</b> · ' + p[1] + ': ' + p[2] + '</li>').join('') + '</ol><p style="margin:6px 0 0">' + A.medidas + A.firma + '</p></div>' : '<p class="mini" style="margin:0">Caso abierto.</p>') + '</div>' +
+        (A && r.acuerdoTexto ? '<div class="blq"><h3>CIERRE REGISTRADO EN ESTA SESIÓN</h3>' + fila('Qué sucedió', r.sucedio) + fila('Acuerdo', r.acuerdoTexto) + '</div>' : '') +
+        '<div class="blq"><div class="atajos-ir" style="margin-bottom:8px">' + UI.ir('delito', { delito: M.grupoDe(r.tipo) }, 'Analizar el delito') + UI.ir('reportes', { tipo: r.tipo }, 'Ver en el reporte mensual') + '</div>' + fila('Registró', M.USUARIOS[r.registra] + ' · ' + r.registra + '<br><span class="mini">' + u.fmtFH(u.sumaMin(u.aFecha(r.fecha, r.hora), 1)) + '</span>') + '</div>' +
+        (gestiona ? '<div class="botones"><button class="btn" id="b-canal"' + (r.cierre ? ' disabled' : '') + '>' + I.enviar + 'Registrar canalización</button><button class="btn lleno" id="b-cerrar"' + (r.cierre ? ' disabled' : '') + '>' + I.check + 'Cerrar caso</button></div>' : '<p class="nota" style="padding:10px 14px">' + I.candado + 'Solo consulta. La canalización y el cierre los registra el coordinador.</p>');
+      F.innerHTML = '<div class="ficha-cab"><div><span class="mini">Ficha del caso</span><h2>' + r.cos + '</h2></div><button class="x" id="cerrarF">×</button></div>' +
+        '<div class="subtabs"><button data-t="ficha" class="' + (fichaTab === 'ficha' ? 'on' : '') + '">' + I.doc + 'Ficha</button><button data-t="ruta" class="' + (fichaTab === 'ruta' ? 'on' : '') + '">' + I.ruta + 'Ruta del caso</button></div>' +
+        (fichaTab === 'ficha' ? ficha : '<div class="blq" style="border:none">' + linea(M.rutaDe([r])) + '</div>');
+      F.querySelectorAll('.subtabs button').forEach(b => b.onclick = () => { fichaTab = b.dataset.t; pintarFicha(); });
+      if ($('b-canal')) $('b-canal').onclick = () => modalCanal(r);
+      if ($('b-cerrar')) $('b-cerrar').onclick = () => modalCierre(r);
+      if ($('resp')) $('resp').onclick = () => { const cn = r.canal.slice(); cn[3] = ['2026-12-31', 'Respuesta registrada por la coordinación.']; M.modificar(r.cos, { canal: cn }); M.evento(ROL.clave, 'Registro de respuesta de instancia', r.cos, M.DESTINOS[cn[0]]); UI.aviso('Respuesta registrada. Ya se puede cerrar el caso.'); pintarFicha(); };
+    }
+    F.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => seleccionar(b.dataset.exp));
+    F.querySelectorAll('[data-revelar]').forEach(b => b.onclick = () => { revelado[b.dataset.revelar] = 1; M.evento(ROL.clave, 'Consulta de dato cifrado', b.dataset.revelar, 'Persona involucrada y descripción'); UI.aviso('Consulta de dato cifrado registrada en la bitácora automática.'); pintarFicha(); });
+    $('cerrarF').onclick = () => { F.innerHTML = '<div class="blq"><p class="nota">' + I.doc + 'Selecciona un caso o un expediente para ver su ficha.</p></div>'; };
+  }
+
+  function modalCanal(r) {
+    const sig = 'OF-COSECOVI-2026-' + String(Math.max(...M.REPORTES.filter(x => x.canal).map(x => +x.canal[1].slice(-3))) + 1).padStart(3, '0');
+    const v = UI.modal('Registrar canalización · ' + r.cos,
+      '<div class="campo"><label>Destino <span class="req">*</span></label><select id="m-dest">' + UI.opts(Object.keys(M.DESTINOS).map(k => [k, M.DESTINOS[k]]), 'DG') + '</select></div>' +
+      '<div class="dos-campos"><div class="campo"><label>Fecha</label><input type="date" id="m-fecha" value="2026-12-31"></div><div class="campo"><label>Número de oficio</label><input id="m-of" value="' + sig + '"></div></div>' +
+      '<p class="nota">' + I.enviar + 'El modo siempre es por oficio. La fase pasa a Canalizado.</p>',
+      '<button class="btn" data-cerrar>Cancelar</button><button class="btn lleno" id="m-ok">Registrar</button>');
+    v.querySelector('#m-ok').onclick = () => { const cn = [v.querySelector('#m-dest').value, v.querySelector('#m-of').value, v.querySelector('#m-fecha').value, null]; M.modificar(r.cos, { canal: cn, fase: 'Canalizado' }); M.evento(ROL.clave, 'Cambio de fase', r.cos, 'En atención COSECOVI → Canalizado · ' + cn[1]); v.remove(); UI.aviso('Canalización registrada en la ruta del caso y en la bitácora automática.'); pintarTabla(); pintarFicha(); };
+  }
+  function modalCierre(r) {
+    const pend = r.canal && !r.canal[3];
+    if (pend) M.evento(ROL.clave, 'Intento de cierre', r.cos, 'Falta la respuesta de ' + M.DESTINOS[r.canal[0]], 'Rechazado');
+    const v = UI.modal('Cerrar caso · ' + r.cos,
+      (pend ? '<div class="alerta mal">' + I.alerta + '<div>No se puede cerrar: falta la respuesta de ' + M.DESTINOS[r.canal[0]] + '.</div></div>' : '') +
+      '<div class="campo" id="mc-que"><label>Qué sucedió <span class="req">*</span></label><textarea id="m-que"></textarea><div class="msg-error">Campo obligatorio</div></div>' +
+      '<div class="dos-campos"><div class="campo"><label>Medida para el alumno</label><select id="m-al">' + UI.opts(MED_AL, 'Ninguna') + '</select></div><div class="campo"><label>Medida para el profesor</label><select id="m-pr">' + UI.opts(MED_PR, 'Ninguna') + '</select></div></div>' +
+      '<div class="campo" id="mc-ac"><label>Acuerdo COSECOVI <span class="req">*</span></label><textarea id="m-ac" placeholder="Fecha y hora · área · acciones en orden · medidas · si se firmó compromiso o acta"></textarea><div class="msg-error">Campo obligatorio</div></div>' +
+      '<div class="campo"><label>Sesión</label><select id="m-ses">' + UI.opts(M.DATOS.sesiones.map(s => s.nombre).reverse(), '') + '</select></div>',
+      '<button class="btn" data-cerrar>Cancelar</button><button class="btn lleno" id="m-ok"' + (pend ? ' disabled' : '') + '>Cerrar caso</button>');
+    v.querySelector('#m-ok').onclick = () => {
+      const q = v.querySelector('#m-que').value.trim(), a = v.querySelector('#m-ac').value.trim();
+      v.querySelector('#mc-que').classList.toggle('error', !q); v.querySelector('#mc-ac').classList.toggle('error', !a); if (!q || !a) { M.evento(ROL.clave, 'Intento de cierre', r.cos, 'Sin qué sucedió o sin Acuerdo COSECOVI', 'Rechazado'); return; }
+      const ant = r.fase, cmb = { cierre: '2026-12-31', sesion: v.querySelector('#m-ses').value, fase: 'Cerrado', sucedio: q, acuerdoTexto: a };
+      if (v.querySelector('#m-al').value !== 'Ninguna') cmb.med_al = v.querySelector('#m-al').value; if (v.querySelector('#m-pr').value !== 'Ninguna') cmb.med_prof = v.querySelector('#m-pr').value;
+      M.modificar(r.cos, cmb); M.evento(ROL.clave, 'Cambio de fase', r.cos, ant + ' → Cerrado');
+      v.remove(); UI.aviso('Caso cerrado con su Acuerdo COSECOVI.'); pintarTabla(); pintarFicha();
+    };
+  }
+
+  /* Detalle del expediente: todos sus casos en una tabla, para inspeccionarlos uno por uno */
+  function pintarDetalleExp() {
+    const D = $('detExp'), id = sel.startsWith('EXP') ? sel : null;
+    if (!id) { D.hidden = true; return; }
+    const rs = M.reportesDeExp(id); if (!rs.length) { D.hidden = true; return; }
+    D.hidden = false;
+    const pers = rs[0].involucrado, conocida = pers !== 'Persona no identificada';
+    const otros = conocida ? [...new Set(M.REPORTES.filter(r => r.involucrado === pers).flatMap(r => r.exps))].filter(e => e !== id) : [];
+    const ab = rs.filter(r => r.fase !== 'Cerrado').length, dias = Math.round((u.aFecha(rs[rs.length - 1].fecha) - u.aFecha(rs[0].fecha)) / 864e5);
+    D.innerHTML = '<div class="tit"><div><small>EXPEDIENTE SELECCIONADO</small><h2>' + id + ' · ' + rs.length + ' caso' + (rs.length > 1 ? 's' : '') + '</h2>' +
+        '<p>' + [...new Set(rs.map(r => M.corto(r.tipo)))].join(', ') + ' · del ' + u.fmtF(rs[0].fecha) + ' al ' + u.fmtF(rs[rs.length - 1].fecha) + (rs.length > 1 ? ' (' + dias + ' días)' : '') + '</p></div>' +
+        '<div style="text-align:right">' + (ab ? '<span class="chip f-atencion">' + ab + ' abierto' + (ab > 1 ? 's' : '') + '</span>' : '<span class="chip f-cerrado">Expediente cerrado</span>') + '</div></div>' +
+      '<div class="t-env"><table class="t"><thead><tr><th>Caso</th><th>Fecha y hora</th><th>Tipo · modalidad</th><th>Lugar</th><th>Fase</th><th>Canalización</th><th>Cierre</th></tr></thead><tbody>' +
+        rs.map(r => '<tr class="clic" data-caso="' + r.cos + '"><td><span class="cos">' + r.cos + '</span></td><td>' + u.fmtF(r.fecha) + '<br><span class="mini">' + r.hora + '</span></td>' +
+          '<td>' + UI.sem(r.semaforo, M.corto(r.tipo)) + '<br><span class="mini">' + r.modo + '</span></td><td>' + r.lugar + '</td><td>' + UI.chipFase(r.fase) + '</td>' +
+          '<td>' + (r.canal ? M.DESTINO_CORTO[r.canal[0]] + '<br><span class="mini">' + r.canal[1] + '</span>' : '—') + '</td><td>' + (r.cierre ? u.fmtF(r.cierre) + '<br><span class="mini">' + (r.sesion || '') + '</span>' : '—') + '</td></tr>').join('') +
+      '</tbody></table></div>' +
+      '<div class="cuerpo" style="padding-top:12px"><div class="dato"><dt>Persona involucrada</dt><dd>' + (conocida ? persona(rs[0]) : 'No identificada') + '</dd></div>' +
+        '<div class="dato"><dt>Otros expedientes de esta persona</dt><dd>' + (otros.length ? otros.map(e => '<button class="chip-exp" data-exp="' + e + '">' + e + '</button>').join(' ') : (conocida ? 'Ninguno' : '—')) + '</dd></div>' +
+        '<p class="nota" style="margin-top:8px">' + I.ruta + 'Selecciona un caso para abrir su ficha, o consulta la ruta completa del expediente en el panel derecho.</p></div>';
+    D.querySelectorAll('tr[data-caso]').forEach(tr => tr.onclick = () => { sel = tr.dataset.caso; fichaTab = 'ficha'; pintarFicha(); D.querySelectorAll('tr').forEach(x => x.classList.toggle('sel', x === tr)); });
+    D.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => seleccionar(b.dataset.exp));
+    D.querySelectorAll('[data-revelar]').forEach(b => b.onclick = () => { revelado[b.dataset.revelar] = 1; M.evento(ROL.clave, 'Consulta de dato cifrado', b.dataset.revelar, 'Persona involucrada'); pintarDetalleExp(); pintarFicha(); });
+  }
+
+  function seleccionar(id) { if (id.startsWith('EXP')) $('agrupar').checked = true; sel = id; fichaTab = 'ficha'; pintarTabla(); pintarFicha(); }
+  document.querySelectorAll('select[data-k]').forEach(s => s.onchange = () => { pag = 1; pintarTabla(); });
+  ['q-cos', 'q-exp', 'f-persona'].forEach(id => $(id).oninput = () => { pag = 1; pintarTabla(); });
+  $('q-cos').onkeydown = e => { if (e.key === 'Enter') { const v = $('q-cos').value.trim().toUpperCase(); if (M.REPORTES.some(r => r.cos === v)) seleccionar(v); } };
+  $('q-exp').onkeydown = e => { if (e.key === 'Enter') { const v = $('q-exp').value.trim().toUpperCase(); if (M.reportesDeExp(v).length) seleccionar(v); } };
+  $('agrupar').onchange = () => { pag = 1; pintarTabla(); };
+  document.querySelectorAll('#modoIns button').forEach(b => b.onclick = () => { $('agrupar').checked = b.dataset.v === 'exp'; pag = 1; pintarTabla(); });
+  $('limpiar').onclick = () => { document.querySelectorAll('select[data-k]').forEach(s => s.value = ''); ['q-cos', 'q-exp', 'f-persona'].forEach(id => $(id).value = ''); pag = 1; pintarTabla(); };
+  UI.alCambiarPeriodo(() => { pag = 1; pintarTabla(); });
+  if (qs.get('agrupar') || qs.get('vista') === 'expedientes' || sel.startsWith('EXP')) $('agrupar').checked = true;
+  chipsExtra();
+  pintarTabla(); pintarFicha();
+})();
+</script>
+</body>
+</html>

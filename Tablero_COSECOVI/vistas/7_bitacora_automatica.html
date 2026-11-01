@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitácora automática · Tablero COSECOVI</title>
+<link rel="stylesheet" href="../estilos.css">
+<style>
+  .det { font-size: 12px; color: #463e42; }
+  .det .fl { color: var(--guinda); font-weight: 700; }
+  .obj { font-weight: 600; color: var(--enlace); white-space: nowrap; }
+  .aviso-sl { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #faf6f8; border: 1px dashed var(--rosa-borde); font-size: 12px; color: var(--texto-2); }
+</style>
+</head>
+<body>
+<div class="pagina"></div>
+<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script>
+<script>
+(function () {
+  if (!UI.cabecera('auditoria')) return;
+  const I = UI.ICON, u = M.u, POR = 14;
+  /* Tipos de acción para filtrar el rastreo */
+  const TIPOS = {
+    'Sesión': e => /Inicio de sesión|Cierre de sesión|Sesión expirada/.test(e.accion),
+    'Navegación': e => /Apertura de vista|Cambio de pestaña|Clic en enlace/.test(e.accion),
+    'Clics en botones y elementos': e => /^Clic en (botón|punto|gráfica|casilla)|Selección en tabla/.test(e.accion),
+    'Filtros, búsquedas y campos': e => /Cambio de filtro|Cambio de periodo|Búsqueda|Captura de campo/.test(e.accion),
+    'Reportes y casos': e => /Alta|Cambio de fase|Registro|Corrección|Liga|cierre|Guardar reporte|dato cifrado/.test(e.accion),
+    'Exportaciones': e => e.accion === 'Exportación',
+    'Rechazos y accesos denegados': e => /Denegado|Bloqueado|Rechazado|Advertencia/.test(e.resultado),
+    'Respaldos': e => /Respaldo/.test(e.accion)
+  };
+  let pag = 1;
+
+  document.querySelector('.pagina').innerHTML =
+    UI.encabezado('escudo', 'AUDITORÍA DEL SERVIDOR', 'Bitácora automática', 'Registro técnico: inicios de sesión, accesos denegados, altas, cambios con valor anterior y nuevo, consultas, exportaciones y respaldos.', UI.restringida()) +
+    '<div class="kpis" id="kpis" style="margin-bottom:14px"></div>' +
+    '<div class="rej-l"><aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Filtros') +
+      '<p class="nota" style="margin:-4px 0 10px">Periodo: <b id="per"></b></p>' +
+      '<div class="campo"><label for="fecha">Fecha</label><input type="date" id="fecha" min="2026-01-01" max="2026-12-31"></div>' +
+      '<div class="campo"><label for="tipo">Tipo de acción</label><select id="tipo">' + UI.opts(Object.keys(TIPOS), '', 'Todas') + '</select></div>' +
+      '<label class="interruptor">Solo esta sesión del prototipo<input type="checkbox" id="solo"><i></i></label>' +
+      '<div class="campo"><label for="usuario">Usuario</label><select id="usuario">' + UI.opts(Object.keys(M.USUARIOS).map(k => [k, k + ' · ' + M.USUARIOS[k]]), '', 'Todos') + '</select></div>' +
+      '<button class="btn bloque" id="limpiar">Limpiar filtros</button><button class="btn lleno bloque" id="actualizar" style="margin-top:8px">Actualizar registros</button>' +
+      '<div class="aviso-sl">Registra todo lo que hace cada usuario: inicios de sesión, vistas abiertas, pestañas, clics en botones y elementos, filtros, búsquedas, capturas, cambios, exportaciones, rechazos y accesos denegados, con fecha y hora. Solo la consulta el presidente. Es de solo inserción: nadie puede editar ni borrar un registro y se conserva de forma permanente.</div></aside>' +
+    '<section class="tarjeta"><div class="t-env"><table class="t"><thead><tr><th style="width:120px">Fecha y hora</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Objeto</th><th>Detalle (valor anterior → nuevo)</th><th>Resultado</th></tr></thead><tbody id="cuerpo"></tbody></table></div>' +
+      '<div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div></section></div>';
+
+  const $ = id => document.getElementById(id);
+  const chip = r => '<span class="chip ' + (r === 'Correcto' ? 'r-ok' : (r === 'Denegado' || r === 'Bloqueado' || r === 'Rechazado') ? 'r-mal' : 'r-neutro') + '">' + r + '</span>';
+  function pintar() {
+    const g = UI.filtroGlobal(), f = $('fecha').value, us = $('usuario').value, tp = $('tipo').value, solo = $('solo').checked;
+    const L = M.auditoria().filter(e => { const ym = u.iso(e.d).slice(0, 7); return ym >= g.desde && ym <= g.hasta && (!f || u.iso(e.d) === f) && (!us || e.usuario === us) && (!tp || TIPOS[tp](e)) && (!solo || e.sesion); });
+    $('per').textContent = UI.periodoTexto();
+    $('kpis').innerHTML = UI.kpi('doc', '', 'Eventos registrados', L.length, UI.periodoTexto()) +
+      UI.kpi('usuario', 'azul', 'Inicios de sesión', L.filter(e => e.accion === 'Inicio de sesión' && e.resultado === 'Correcto').length, 'Con verificación en dos pasos') +
+      UI.kpi('candado', 'rojo', 'Accesos denegados y bloqueos', L.filter(e => e.resultado === 'Denegado' || e.resultado === 'Bloqueado').length, 'Vistas fuera del rol e intentos fallidos') +
+      UI.kpi('ruta', 'morado', 'Altas y cambios en reportes', L.filter(e => /Alta de reporte|Cambio de fase|Corrección|Registro de|Liga a/.test(e.accion)).length, 'Con valor anterior y nuevo') +
+      UI.kpi('descarga', '', 'Exportaciones', L.filter(e => e.accion === 'Exportación').length, 'Reporte mensual') +
+      UI.kpi('grafica', 'azul', 'Clics, filtros y navegación', L.filter(e => TIPOS['Navegación'](e) || TIPOS['Clics en botones y elementos'](e) || TIPOS['Filtros, búsquedas y campos'](e)).length, 'Rastreo detallado de uso');
+    const n = L.length; pag = Math.min(pag, Math.max(1, Math.ceil(n / POR)));
+    $('cuerpo').innerHTML = L.slice((pag - 1) * POR, pag * POR).map(e => '<tr><td>' + u.fmtF(e.d) + '<br><span style="color:var(--texto-2)">' + u.hhmm(e.d) + '</span></td><td style="white-space:nowrap"><b>' + e.usuario + '</b></td><td>' + e.rol + '</td><td>' + e.accion + '</td>' +
+      '<td>' + (/^(COS|EXP)-/.test(e.objeto) && UI.enlace('inspeccion', { caso: e.objeto }) ? '<a class="obj" href="' + UI.enlace('inspeccion', { caso: e.objeto }) + '">' + e.objeto + '</a>' : '<span class="obj">' + e.objeto + '</span>') + (e.sesion ? ' <span class="chip np r-neutro">Esta sesión</span>' : '') + '</td><td class="det">' + e.detalle.replace(' → ', ' <span class="fl">→</span> ') + '</td><td>' + chip(e.resultado) + '</td></tr>').join('') ||
+      '<tr><td colspan="7" class="cen" style="padding:24px;color:var(--texto-2)">Sin registros con estos filtros.</td></tr>';
+    $('conteo').textContent = n ? 'Mostrando ' + ((pag - 1) * POR + 1) + '–' + Math.min(pag * POR, n) + ' de ' + n + ' registros' : '0 registros';
+    const tot = Math.ceil(n / POR);
+    if (tot > 12) { $('pags').innerHTML = '<button ' + (pag === 1 ? 'disabled' : '') + ' id="ant">‹ Anterior</button><button class="on">' + pag + ' / ' + tot + '</button><button ' + (pag === tot ? 'disabled' : '') + ' id="sig">Siguiente ›</button>'; $('ant').onclick = () => { pag--; pintar(); }; $('sig').onclick = () => { pag++; pintar(); }; }
+    else UI.paginar($('pags'), n, POR, pag, p => { pag = p; pintar(); });
+  }
+  $('fecha').onchange = $('usuario').onchange = $('tipo').onchange = $('solo').onchange = () => { pag = 1; pintar(); };
+  $('limpiar').onclick = () => { $('fecha').value = ''; $('usuario').value = ''; $('tipo').value = ''; $('solo').checked = false; pag = 1; pintar(); };
+  $('actualizar').onclick = () => setTimeout(() => { pag = 1; pintar(); }, 0);
+  UI.alCambiarPeriodo(() => { pag = 1; pintar(); });
+  pintar();
+})();
+</script>
+</body>
+</html>
