@@ -145,6 +145,8 @@
     const sig = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
     $('enc').innerHTML = UI.encabezado('doc', 'CAPTURA', 'Agregar reporte', 'Registra un nuevo incidente para integrarlo al expediente de COSECOVI.', UI.restringida());
     const campo = (id, et, ctrl, req, cls) => '<div class="campo' + (cls ? ' ' + cls : '') + '" id="c-' + id + '"><label for="' + id + '">' + et + (req ? ' <span class="req">*</span>' : '') + '</label>' + ctrl + '<div class="msg-error">Campo obligatorio</div></div>';
+    /* Macro-zonas que corresponden a cada ámbito, para que el formulario no mezcle lugares de dentro y de fuera */
+    const ZONAS_AMB = { Interno: ['Interior del plantel', 'Estacionamiento', 'Explanada', 'Área deportiva', 'Medios digitales'], Externo: ['Accesos', 'Entorno exterior', 'Medios digitales'] };
     const sel = (id, arr, ph) => '<select id="' + id + '"><option value="">' + ph + '</option>' + arr.map(x => '<option>' + x + '</option>').join('') + '</select>';
     $('cont').innerHTML =
       '<section class="tarjeta form"><div id="msg"></div>' +
@@ -157,7 +159,8 @@
         '<div class="bloque"><h3>CÓMO <span>· la modalidad depende del tipo elegido en Qué, para no repetir lo que ya indica la taxonomía</span></h3><div class="g2">' + campo('modo', 'Modalidad (cómo ocurrió)', '<select id="modo" disabled><option value="">Primero elige el tipo de incidente</option></select>', 1) +
           '<p class="nota" id="taxo" style="align-self:center"></p></div></div>' +
         '<div class="bloque"><h3>DÓNDE</h3><div class="g2">' + campo('ambito', 'Ámbito', '<div class="seg" id="ambito" style="display:flex"><button type="button" data-a="Interno" class="on" style="flex:1">Interno</button><button type="button" data-a="Externo" style="flex:1">Externo</button></div>', 1) +
-          campo('zona', 'Macro-zona del mapa', sel('zona', M.ZONAS, 'Selecciona una macro-zona'), 1) + '</div>' +
+          campo('zona', 'Macro-zona del mapa', sel('zona', ZONAS_AMB.Interno, 'Selecciona una macro-zona'), 1) + '</div>' +
+          '<div class="g2" id="punto-w" hidden>' + campo('punto', '<span id="punto-lbl">Punto de referencia</span>', '<select id="punto"></select>') + '<p class="nota" id="punto-nota" style="align-self:center"></p></div>' +
           '<div class="g3" id="interno">' + campo('edif', 'Edificio', sel('edif', M.EDIFICIOS, 'Selecciona')) + campo('piso', 'Piso', sel('piso', M.PISOS, 'Selecciona')) + campo('esp', 'Espacio', sel('esp', M.ESPACIOS, 'Selecciona')) + '</div>' +
           '<div class="g4" id="externo" hidden>' + campo('calle', 'Calle y número', '<input id="calle">') + campo('col', 'Colonia', '<input id="col" value="Lindavista">') + campo('entre', 'Entre calles', '<input id="entre">') + campo('ref', 'Referencia para llegar', '<input id="ref">') + '</div></div>' +
         '<div class="bloque"><h3>A QUIÉN</h3><div class="g2">' + campo('afect', 'Tipo de afectado', sel('afect', M.AFECTADOS, 'Selecciona'), 1) +
@@ -178,7 +181,25 @@
       $('msg').innerHTML = '<div class="alerta info">' + I.candado + '<div>Modo de solo consulta para tu rol (' + ROL.nombre + '). La captura la realizan el coordinador y los vocales de apoyo; aquí puedes revisar el formulario y los reportes capturados.</div></div>';
     }
     let ambito = 'Interno', pertenece = false, expSel = null;
-    $('ambito').querySelectorAll('button').forEach(b => b.onclick = () => { ambito = b.dataset.a; $('ambito').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('interno').hidden = ambito !== 'Interno'; $('externo').hidden = ambito === 'Interno'; });
+    const LUG = M.DATOS.lugares;
+    const puntos = () => Object.keys(LUG).filter(k => LUG[k].zona === $('zona').value && LUG[k].ambito === ambito);
+    /* Ámbito → Macro-zona → lugar: cada paso solo ofrece opciones congruentes con el anterior */
+    function donde() {
+      const z = $('zona').value, dig = z === 'Medios digitales', ps = puntos();
+      $('interno').hidden = !(ambito === 'Interno' && z === 'Interior del plantel');
+      $('externo').hidden = !(ambito === 'Externo' && (z === 'Entorno exterior' || z === 'Accesos'));
+      $('punto-w').hidden = !z || z === 'Interior del plantel' || !ps.length;
+      $('punto-lbl').textContent = dig ? 'Medio por el que ocurrió' : 'Punto de referencia';
+      $('punto').innerHTML = '<option value="">Selecciona</option>' + ps.map(k => '<option value="' + k + '">' + LUG[k].nombre + '</option>').join('');
+      $('punto-nota').textContent = !z ? '' : ambito === 'Interno' ? 'Lugares dentro del plantel para la macro-zona ' + z.toLowerCase() + '.' : 'Lugares fuera del plantel para la macro-zona ' + z.toLowerCase() + '.';
+    }
+    $('ambito').querySelectorAll('button').forEach(b => b.onclick = () => {
+      ambito = b.dataset.a; $('ambito').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      const z = $('zona').value;
+      $('zona').innerHTML = '<option value="">Selecciona una macro-zona</option>' + ZONAS_AMB[ambito].map(x => '<option' + (x === z ? ' selected' : '') + '>' + x + '</option>').join('');
+      donde();
+    });
+    $('zona').onchange = donde; donde();
     $('pert').querySelectorAll('button').forEach(b => b.onclick = () => { pertenece = b.dataset.v === 'si'; $('pert').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('busq-exp').hidden = !pertenece; buscarExp(); });
     function buscarExp() {
       const q = $('qexp').value.trim().toLowerCase();
@@ -214,8 +235,11 @@
       const cos = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
       const nExp = new Set(M.REPORTES.flatMap(r => r.exps)).size + 1;
       const exp = pertenece ? expSel : 'EXP-2026-' + String(nExp).padStart(4, '0');
-      const lugar = ambito === 'Interno' ? [val('edif'), val('piso'), val('esp')].filter(Boolean).join(' · ') || req.zona : (val('calle') || req.zona);
-      const lugId = Object.keys(M.DATOS.lugares).find(k => M.DATOS.lugares[k].zona === req.zona) || 'exp';
+      const pt = val('punto'), interior = ambito === 'Interno' && req.zona === 'Interior del plantel';
+      const lugar = interior ? [val('edif'), val('piso'), val('esp')].filter(Boolean).join(' · ') || req.zona
+        : [pt ? LUG[pt].nombre : '', val('calle')].filter(Boolean).join(' · ') || req.zona;
+      const lugId = pt || (interior && Object.keys(LUG).find(k => LUG[k].zona === req.zona && val('edif') && LUG[k].nombre.startsWith(val('edif') + ' ·')))
+        || Object.keys(LUG).find(k => LUG[k].zona === req.zona && LUG[k].ambito === ambito) || Object.keys(LUG).find(k => LUG[k].zona === req.zona) || 'exp';
       M.agregarReporte({ cos, fecha: req.fecha, hora: req.hora, tipo: req.tipo, semaforo: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(req.tipo) ? 'Amarillo' : 'Rojo', nivel: req.nivel, modo: req.modo,
         ambito, zona: req.zona, lugar, lug: lugId, afectado: req.afect, involucrado: val('pers') || 'Persona no identificada', exps: [exp], liga: pertenece, fase: 'En atención COSECOVI', canal: null, at: [req.aten, req.aten === 'Inmediata' ? 30 : 240], cierre: null, sesion: null, registra: ROL.clave });
       M.evento(ROL.clave, 'Alta de reporte', cos, pertenece ? 'Ligado a ' + exp : 'Expediente ' + exp + ' creado automáticamente');
