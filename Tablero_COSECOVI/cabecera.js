@@ -158,7 +158,7 @@
      Registra cada clic en botones, enlaces, pestañas, filas, puntos del mapa
      y cada cambio de filtro o campo, con usuario, rol, fecha y hora.
      Los campos con datos sensibles se registran sin su valor. */
-  const SENSIBLES = ['desc', 'pers', 'f-persona', 'qexp', 'calle', 'entre', 'ref', 'col', 'm-que', 'm-ac', 'pwd'];
+  const SENSIBLES = ['desc', 'pers', 'f-persona', 'qexp', 'calle', 'entre', 'ref', 'col', 'm-que', 'm-ac', 'm-mot', 'm-rt', 'pwd'];
   const limpio = t => (t || '').replace(/\s+/g, ' ').trim().slice(0, 70);
   function etiquetaCampo(el) {
     if (el.getAttribute('aria-label')) return el.getAttribute('aria-label');

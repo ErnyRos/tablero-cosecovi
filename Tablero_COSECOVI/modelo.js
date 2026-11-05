@@ -46,7 +46,15 @@
   const USUARIOS = { 'PRES-01': 'Presidente', 'COORD-01': 'Coordinador', 'VOC-01': 'Vocal de apoyo', 'VOC-02': 'Vocal de apoyo', Sistema: 'Sistema' };
   const EDIFICIOS = ['Edificio 1', 'Edificio 2', 'Edificio 3', 'Edificio 4', 'Edificio de Gobierno'];
   const PISOS = ['Planta baja', 'Piso 1', 'Piso 2', 'Piso 3'];
-  const ESPACIOS = ['Aula 1001', 'Aula 2001', 'Aula 3001', 'Aula 4001', 'Lab. Ciencia de Datos 1', 'Lab. Ciencia de Datos 2', 'Lab. Redes y Circuitos', 'Lab. IA', 'Lab. Sistemas', 'Pasillo', 'Ventanillas'];
+  /* Salones: el número sigue al edificio (millar) y al piso (centena). Edificio 2, piso 3 → 2301 a 2310; planta baja = 0 */
+  const NUM_PISO = { 'Planta baja': 0, 'Piso 1': 1, 'Piso 2': 2, 'Piso 3': 3 };
+  const espacios = (edif, piso) => {
+    if (edif === 'Edificio de Gobierno') return ['Ventanillas', 'Oficinas', 'Pasillo', 'Sanitarios'];
+    const e = +String(edif || '').replace(/\D/g, ''), p = NUM_PISO[piso];
+    if (!e || p === undefined) return [];
+    return Array.from({ length: 10 }, (_, i) => 'Aula ' + (e * 1000 + p * 100 + i + 1)).concat(['Pasillo', 'Sanitarios', 'Escaleras']);
+  };
+  const ESPACIOS = espacios('Edificio 1', 'Planta baja');
 
   /* Meses con datos: del mes del primer reporte al mes actual (incluye el mes en curso para lo que se capture hoy) */
   const MESES_DATOS = [];
@@ -215,24 +223,78 @@
   }
 
   /* ---------- Textos cifrados de ejemplo (descripción y Acuerdo) ---------- */
-  const ACCION = {
-    'Robo sin violencia': 'Aviso a seguridad interna y revisión de cámaras de la zona',
-    'Robo con violencia': 'Acompañamiento a la persona afectada para presentar la denuncia y aviso al jefe de cuadrante de la SSC',
-    'Extorsión': 'Orientación para no realizar pagos, bloqueo del número y difusión del protocolo de reporte seguro',
-    'Acoso': 'Aplicación del protocolo de la Red de Género y medidas de protección para la persona afectada',
-    'Ciberacoso': 'Resguardo de la evidencia digital y aviso a la Red de Género',
-    'Consumo de alcohol o drogas': 'Valoración por el servicio médico y aviso a la familia',
-    'Violencia (riña o agresión)': 'Separación de las partes, valoración médica y mediación'
+  /* Acción inmediata de COSECOVI por tipo y ámbito: dentro del plantel actúa la seguridad privada,
+     fuera del plantel se canaliza con el jefe de cuadrante de la SSC (documento de requerimientos) */
+  const ACCION_DE = r => {
+    const ext = r.ambito === 'Externo';
+    switch (r.tipo) {
+      case 'Robo sin violencia': return ext ? ['Coordinación de COSECOVI', 'Aviso al jefe de cuadrante de la SSC para reforzar la vigilancia en ' + r.lugar + '.']
+        : ['Seguridad privada', 'Revisión de las cámaras de ' + r.lugar + ' y refuerzo del rondín en la zona.'];
+      case 'Robo con violencia': return ['Coordinación de COSECOVI', 'Acompañamiento a la persona afectada para presentar su denuncia ante el Ministerio Público y aviso al jefe de cuadrante de la SSC.'];
+      case 'Extorsión': return ['Coordinación de COSECOVI', 'Orientación para no realizar ningún pago, bloqueo del número o de la cuenta y recomendación de presentar la denuncia; se recuerda el protocolo de reporte seguro.'];
+      case 'Acoso': return ['Red de Género de ESCOM', 'Aplicación del protocolo de la Red de Género y medidas de protección para la persona afectada.'];
+      case 'Ciberacoso': return ['Red de Género de ESCOM', 'Resguardo de la evidencia digital y aplicación del protocolo de la Red de Género.'];
+      case 'Consumo de alcohol o drogas': return ext ? ['Coordinación de COSECOVI', 'Aviso al jefe de cuadrante de la SSC sobre el consumo en el perímetro del plantel.']
+        : ['Servicio médico', 'Valoración médica de la persona y aviso a su familia.'];
+      default: return ext ? ['Coordinación de COSECOVI', 'Aviso al jefe de cuadrante de la SSC y orientación a las partes para presentar su denuncia.']
+        : ['Seguridad privada y servicio médico', 'Separación de las partes y valoración médica de las personas involucradas.'];
+    }
   };
   const ACCION_CORTA = {
-    'Robo sin violencia': 'Aviso a seguridad y revisión de cámaras', 'Robo con violencia': 'Acompañamiento a denuncia y aviso a la SSC',
+    'Robo sin violencia': 'Revisión de cámaras con seguridad privada o aviso a la SSC', 'Robo con violencia': 'Acompañamiento a denuncia y aviso a la SSC',
     'Extorsión': 'Orientación y protocolo de reporte seguro', 'Acoso': 'Protocolo de la Red de Género', 'Ciberacoso': 'Resguardo de evidencia y Red de Género',
-    'Consumo de alcohol o drogas': 'Servicio médico y aviso a la familia', 'Violencia (riña o agresión)': 'Separación de las partes y mediación'
+    'Consumo de alcohol o drogas': 'Servicio médico y aviso a la familia', 'Violencia (riña o agresión)': 'Separación de las partes, valoración médica y mediación'
   };
-  function descripcion(r) {
-    if (r.clave === 'validado') return 'Un alumno presentó síntomas de intoxicación por consumo de una sustancia en el pasillo del piso 2 del Edificio 2; un compañero dio aviso a la coordinación. La persona estaba consciente y con dificultad para respirar.';
-    return 'La persona afectada, de tipo ' + r.afectado.toLowerCase() + ', refiere un hecho de ' + corto(r.tipo).toLowerCase() + ' en ' + r.lugar + ' (modalidad: ' + r.modo.toLowerCase() + '). Se registra lo que comentó y una descripción general del hecho.';
+  /* ---------- Descripción del incidente: en neutro, qué ocurrió y de quién se trata ---------- */
+  const QUIEN = { Alumno: 'Un alumno', Profesor: 'Un profesor', Personal: 'Una persona del personal', Externo: 'Una persona externa' };
+  const INV = (v, af) => v === 'Persona no identificada' ? 'una persona no identificada' : (v.split(' ·')[0] === af ? 'otro ' : 'un ') + v.split(' ·')[0].toLowerCase();
+  /* Lugar escrito en prosa: "el pasillo del piso 1 del Edificio 3", "el aula 2101 del Edificio 2" */
+  const LUG_TXT = { acc: 'el acceso principal', jdb: 'el paradero de Av. Juan de Dios Bátiz', nep: 'la calle Neptuno', ipn: 'Plaza Torres Lindavista, sobre Av. Juan de Dios Bátiz',
+    mmz: 'el paradero de Av. Miguel Othón de Mendizábal', wma: 'el área verde de Av. Lázaro Cárdenas (Eje Central)', mab: 'la barda poniente de la calle Neptuno',
+    est: 'el estacionamiento', exp: 'la explanada central', caf: 'la cafetería', dep: 'el área deportiva' };
+  function lugarTxt(r) {
+    const m = (r.lugar || '').match(/^(Edificio [^·]+) · (Planta baja|Piso \d) · (.+)$/);
+    if (m) { const piso = m[2] === 'Planta baja' ? 'la planta baja' : 'el ' + m[2].toLowerCase(), esp = m[3];
+      return (/^Aula/.test(esp) ? 'el aula ' + esp.slice(5) : 'el área de ' + esp.toLowerCase()).replace("el área de pasillo", 'el pasillo').replace("el área de ventanillas", 'las ventanillas').replace("el área de sanitarios", 'los sanitarios').replace("el área de escaleras", 'las escaleras').replace("el área de oficinas", 'las oficinas') + (' de ' + piso).replace('de el ', 'del ') + ' del ' + m[1]; }
+    if (r.lug && LUG_TXT[r.lug] && (!r.lugar || D.lugares[r.lug] && r.lugar.startsWith(D.lugares[r.lug].nombre))) return LUG_TXT[r.lug];
+    return r.lugar ? (r.lugar.charAt(0).toLowerCase() === r.lugar.charAt(0) ? r.lugar : r.lugar) : r.zona.toLowerCase();
   }
+  const elige = (r, arr) => arr[(+r.cos.slice(-4)) % arr.length];
+  function descripcion(r) {
+    if (r.desc) return r.desc;  /* lo que se redactó al capturar el reporte */
+    if (r.clave === 'validado') return 'Un alumno presentó síntomas de intoxicación por consumo de una sustancia en el pasillo del piso 2 del Edificio 2; un compañero dio aviso a la coordinación. La persona estaba consciente y con dificultad para respirar.';
+    const A = QUIEN[r.afectado] || 'Una persona', lug = lugarTxt(r), h = r.hora, inv = INV(r.involucrado, r.afectado);
+    const obj = elige(r, ['su celular', 'su cartera', 'su mochila', 'su computadora portátil', 'su calculadora']);
+    const T = {
+      'Descuido o distracción': A + ' refiere que, mientras estaba distraído en ' + lug + ', le sustrajeron ' + obj + ' sin que se diera cuenta. Notó la falta alrededor de las ' + h + '.',
+      'Pertenencia sin vigilancia': A + ' comenta que dejó ' + obj + ' sin vigilancia en ' + lug + ' y, al regresar cerca de las ' + h + ', ya no estaba. No vio a la persona que se lo llevó.',
+      'Sustracción de vehículo o autopartes': A + ' reporta que al volver a su vehículo en ' + lug + ', alrededor de las ' + h + ', ' + elige(r, ['le faltaban los espejos laterales', 'le faltaba la batería', 'le faltaban los tapones de las llantas']) + '. No hubo testigos.',
+      'Amenaza verbal': A + ' relata que cerca de las ' + h + ', en ' + lug + ', una persona lo amenazó verbalmente y le exigió ' + obj + ', que entregó. No presenta lesiones.',
+      'Uso de fuerza física': A + ' relata que en ' + lug + ', alrededor de las ' + h + ', una persona lo sujetó y le arrebató ' + obj + '. Refiere molestias por el forcejeo.',
+      'Con arma': A + ' relata que en ' + lug + ', cerca de las ' + h + ', una persona con un arma le exigió ' + obj + '. No presenta lesiones, pero refiere afectación emocional.',
+      'Llamada telefónica': A + ' recibió una llamada en la que una persona se identificó como integrante de un grupo delictivo y le exigió un depósito para no dañar a su familia. No realizó ningún pago.',
+      'Mensajes o redes sociales': A + ' recibió mensajes en los que le exigen dinero a cambio de no difundir información personal. Conserva capturas de pantalla.',
+      'Presencial': A + ' refiere que en ' + lug + ', una persona le exigió dinero a cambio de no causarle daño. No realizó ningún pago.',
+      'Verbal': A + ' refiere comentarios ofensivos y de connotación sexual por parte de ' + inv + ' en ' + lug + ', de forma reiterada.',
+      'No verbal (gestos o miradas)': A + ' refiere miradas y gestos lascivos insistentes por parte de ' + inv + ' en ' + lug + ', que le generan incomodidad.',
+      'Físico': A + ' refiere contacto físico no consentido por parte de ' + inv + ' en ' + lug + '.',
+      'Grupo escolar de mensajería': A + ' reporta que en un grupo escolar de mensajería se publican burlas y mensajes ofensivos dirigidos a su persona. Conserva capturas de pantalla.',
+      'Correo institucional': A + ' reporta que recibe correos institucionales con mensajes hostigadores. Conserva los correos como evidencia.',
+      'Redes sociales': A + ' reporta publicaciones y mensajes ofensivos sobre su persona en redes sociales. Conserva capturas de pantalla.',
+      'Difusión de contenido': A + ' reporta que se difundió sin su consentimiento contenido personal suyo en medios digitales.',
+      'Consumo': 'Se reporta a ' + INV(r.involucrado) + ' consumiendo bebidas alcohólicas o alguna sustancia en ' + lug + ' alrededor de las ' + h + '.',
+      'Posesión': 'Se reporta a ' + INV(r.involucrado) + ' con posesión de una sustancia en ' + lug + ' alrededor de las ' + h + '.',
+      'Distribución': 'Se reporta a ' + INV(r.involucrado) + ' ofreciendo sustancias a otras personas en ' + lug + ' alrededor de las ' + h + '.',
+      'Riña entre personas': 'Se reporta una riña en ' + lug + ' cerca de las ' + h + '. ' + A + ' resultó con golpes leves.',
+      'Agresión física': A + ' refiere que ' + inv + ' lo agredió físicamente en ' + lug + ' alrededor de las ' + h + '.',
+      'Con arma u objeto': A + ' refiere que ' + inv + ' lo agredió con un objeto en ' + lug + ' alrededor de las ' + h + '.'
+    };
+    return T[r.modo] || A + ' reporta un hecho de ' + corto(r.tipo).toLowerCase() + ' en ' + lug + ' alrededor de las ' + h + '.';
+  }
+  /* ---------- Acuerdo COSECOVI: fecha y hora, área que actuó, acciones en orden y medidas ---------- */
+  const A_DEST = { DG: 'la COSECOVI de Dirección General', CT: 'el Consejo Técnico (Comisión de Honor)', SSC: 'la SSC' };
+  const PARA = { DG: 'para su conocimiento y seguimiento', CT: 'para que su Comisión de Honor determine las medidas que correspondan', SSC: 'para su atención en la vía pública' };
+  const motivoCanal = r => r.canalMotivo || ('Se turna ' + PARA[r.canal[0]]);
   function pasosAcuerdo(r) {
     const t0 = aFecha(r.fecha, r.hora), at = sumaMin(t0, r.at[1]), p = [];
     if (r.clave === 'validado') {
@@ -240,22 +302,26 @@
       p.push([fmtFH(sumaMin(at, 8)), 'Servicio médico', 'Primeros auxilios para resguardar la vida de la persona y solicitud de ambulancia.']);
       p.push([fmtFH(sumaMin(at, 33)), 'Subdirección de Extensión', 'Traslado en ambulancia y aviso a la familia.']);
     } else {
-      p.push([fmtFH(at), 'Coordinación de COSECOVI', 'Primera atención ' + r.at[0].toLowerCase() + ': entrevista con la persona afectada y registro del hecho.']);
-      p.push([fmtFH(sumaMin(at, 30)), 'Coordinación de COSECOVI', ACCION[r.tipo] + '.']);
+      const ac = ACCION_DE(r);
+      p.push([fmtFH(at), 'Coordinación de COSECOVI', 'Primera atención ' + r.at[0].toLowerCase() + ': entrevista con ' + (r.tipo === 'Consumo de alcohol o drogas' ? 'la persona reportada' : 'la persona afectada') + ' y registro del reporte ' + r.cos + '.']);
+      p.push([fmtFH(sumaMin(at, 30)), ac[0], ac[1]]);
+      if (r.tipo === 'Violencia (riña o agresión)' && r.ambito === 'Interno') { const d = sumaMin(at, 24 * 60); d.setHours(10, 0, 0, 0); p.push([fmtFH(d), 'Coordinación de COSECOVI', 'Mediación entre las partes involucradas.']); }
     }
     if (r.canal) {
-      p.push([fmtF(r.canal[2]), DESTINOS[r.canal[0]], 'Se turna el caso con el oficio ' + r.canal[1] + '.']);
+      p.push([fmtF(r.canal[2]), 'Coordinación de COSECOVI', 'Se turna el caso a ' + A_DEST[r.canal[0]] + ' con el oficio ' + r.canal[1] + ', ' + PARA[r.canal[0]] + '.' + (r.canalMotivo ? ' Motivo: ' + r.canalMotivo : '')]);
       if (r.canal[3]) p.push([fmtF(r.canal[3][0]), DESTINOS[r.canal[0]], r.canal[3][1]]);
     }
+    if (r.cierre) p.push([fmtF(r.cierre), 'COSECOVI en ' + (r.sesion || 'sesión'), 'Se revisa el caso y se acuerda su cierre.']);
     return p;
   }
   function acuerdo(r) {
     if (!r.cierre) return null;
     const med = [];
-    if (r.med_al) med.push('alumno: ' + r.med_al.toLowerCase());
-    if (r.med_prof) med.push('profesor: ' + r.med_prof.toLowerCase());
+    const min1 = t => t.charAt(0).toLowerCase() + t.slice(1);
+    if (r.med_al) med.push('alumno: ' + min1(r.med_al));
+    if (r.med_prof) med.push('profesor: ' + min1(r.med_prof));
     const firma = r.tipo === 'Violencia (riña o agresión)' ? ' Se firmó un compromiso de convivencia entre las partes.' : '';
-    return { pasos: pasosAcuerdo(r), medidas: med.length ? 'Medidas para el ' + med.join('; para el ') + '.' : 'Sin medidas para personas de la comunidad.', firma, sesion: r.sesion, fecha: r.cierre };
+    return { pasos: pasosAcuerdo(r), texto: r.acuerdoTexto || '', sucedio: r.sucedio || '', medidas: med.length ? 'Medidas para el ' + med.join('; para el ') + '.' : 'Sin medidas para personas de la comunidad.', firma, sesion: r.sesion, fecha: r.cierre };
   }
 
   /* ---------- Ruta del caso (lo que era la Bitácora de seguimiento) ---------- */
@@ -271,11 +337,11 @@
     ev.push({ d: sumaMin(t0, r.at[1]), tipo: 'atencion', cos: r.cos, usuario: 'COORD-01', titulo: 'Primera atención · ' + r.at[0], detalle: 'Tiempo de respuesta: ' + fmtDur(r.at[1]) + ' desde que COSECOVI conoció el hecho.' });
     if (r.clave === 'validado') pasosAcuerdo(r).slice(1, 3).forEach((p, i) => ev.push({ d: sumaMin(t0, r.at[1] + (i ? 33 : 8)), tipo: 'accion', cos: r.cos, usuario: 'COORD-01', titulo: p[1], detalle: p[2] }));
     if (r.canal) {
-      ev.push({ d: aFecha(r.canal[2], '10:00'), tipo: 'canal', cos: r.cos, usuario: 'COORD-01', titulo: 'Canalizado a ' + DESTINOS[r.canal[0]], detalle: 'Oficio ' + r.canal[1] + ' · Fase: En atención COSECOVI → Canalizado' });
+      ev.push({ d: aFecha(r.canal[2], '10:00'), tipo: 'canal', cos: r.cos, usuario: 'COORD-01', titulo: 'Canalizado a ' + DESTINOS[r.canal[0]], detalle: 'Oficio ' + r.canal[1] + ' · ' + motivoCanal(r) + ' · Fase: En atención COSECOVI → Canalizado' });
       if (r.canal[3]) ev.push({ d: aFecha(r.canal[3][0], '12:00'), tipo: 'respuesta', cos: r.cos, usuario: 'COORD-01', titulo: 'Respuesta de ' + DESTINOS[r.canal[0]], detalle: r.canal[3][1] });
       else if (!r.cierre) ev.push({ d: null, tipo: 'pendiente', cos: r.cos, usuario: '', titulo: 'Respuesta de la instancia pendiente', detalle: 'No se puede cerrar hasta registrar la respuesta de ' + DESTINOS[r.canal[0]] + '.' });
     }
-    if (r.cierre) ev.push({ d: aFecha(r.cierre, '13:00'), tipo: 'cierre', cos: r.cos, usuario: 'COORD-01', titulo: 'Caso cerrado · Acuerdo COSECOVI', detalle: acuerdo(r).medidas + acuerdo(r).firma + ' ' + r.sesion + '.' });
+    if (r.cierre) ev.push({ d: aFecha(r.cierre, '13:00'), tipo: 'cierre', cos: r.cos, usuario: 'COORD-01', titulo: 'Caso cerrado · Acuerdo COSECOVI', detalle: (r.acuerdoTexto ? r.acuerdoTexto + ' ' : '') + acuerdo(r).medidas + acuerdo(r).firma + ' ' + r.sesion + '.' });
     return ev;
   }
   function rutaDe(lista) {
@@ -332,7 +398,7 @@
       acc: [['Aplicar estrategias de prevención y concientización.', E => E.casos && nc(E.casos) + ' en ' + E.expedientes + ' expedientes durante el periodo.'],
         ['Realizar campañas sobre consumo de sustancias.', E => E.salud && nc(E.salud) + ' de consumo de alcohol o drogas.'],
         ['Mantener monitoreo en zonas de riesgo.', E => E.casos && 'Lugar con más casos: ' + E.lugar[0] + ' (' + nc(E.lugar[1]) + '); franja ' + E.franja[0] + ' h.'],
-        ['Coordinar acciones con seguridad interna.', E => E.internos && nc(E.internos) + ' dentro del plantel.']] }
+        ['Coordinar acciones con la seguridad privada del plantel.', E => E.internos && nc(E.internos) + ' dentro del plantel.']] }
   ];
   const recDeTipo = t => REC.find(x => x.grupos.includes(grupoDe(t)));
   /* Aplica el motor a una lista de casos: una entrada por recomendación, ordenadas por casos abiertos */
@@ -398,9 +464,9 @@
     CASO_VALIDADO,
     sesion, mesActual, agregarReporte, sigCOS, sigEXP, sigOficio, modificar, evento, preferencia, restablecer, ahora,
     DATOS: D, REPORTES, TIPOS, GRUPOS, DESC_GRUPO, ZONAS, FASES, DESTINOS, DESTINO_CORTO, AFECTADOS, MODOS, MODOS_TIPO, FRANJAS, DIAS, MESES_DATOS,
-    EDIFICIOS, PISOS, ESPACIOS, USUARIOS, ACCION_CORTA,
+    EDIFICIOS, PISOS, ESPACIOS, espacios, USUARIOS, ACCION_CORTA,
     filtrar, contar, mayor, metricas, indiceGeneral, indiceGrupo, nivelIndice, serieMensual, proyeccion, mesesEntre,
-    descripcion, acuerdo, ruta, rutaDe, expedientes, reportesDeExp, auditoria, grupoDe, corto, REC, recomendar, recDeTipo, siguienteAccion,
+    descripcion, acuerdo, motivoCanal, ruta, rutaDe, expedientes, reportesDeExp, auditoria, grupoDe, corto, REC, recomendar, recDeTipo, siguienteAccion,
     u: { aFecha, sumaMin, iso, hhmm, fmtF, fmtFC, fmtFH, fmtDur, nombreMes, mesCorto, nombrePeriodo, franjaDe, diaDe, pct, dos }
   };
 })();

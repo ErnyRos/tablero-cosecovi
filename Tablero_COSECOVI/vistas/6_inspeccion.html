@@ -120,7 +120,7 @@
     const top = M.expedientes(L).sort((a, b) => b.reportes.length - a.reportes.length).slice(0, 5);
     const h1a = r => r.at[1] / 60, dCierre = r => r.cierre ? Math.round((u.aFecha(r.cierre) - u.aFecha(r.fecha)) / 864e5) : null;
     EST.pintar([
-UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
+UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
         '<p class="nota" style="margin-top:8px">' + I.reloj + 'Primera atención promedio ' + K.primeraAtencionH + ' h · cierre promedio ' + K.cierreDias + ' días</p>'),
       UI.tarjetaG('REINCIDENCIA', 'Expedientes con más reportes', '<div id="topexp">' + G.barras(top.map(e => ({ et: e.id, v: e.reportes.length })), G.COL.guinda, 110) + '</div><p class="nota" style="margin-top:6px">' + I.carpeta + 'Selecciona un expediente para ver su ruta.</p>'),
       UI.tarjetaG('FLUJO', 'Casos por fase', G.dona(G.partes(L, r => r.fase, M.FASES, [G.COL.atencion, G.COL.canal, G.COL.cerrado]), 'casos')),
@@ -157,18 +157,24 @@ UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)
     } else {
       const r = M.REPORTES.find(x => x.cos === sel); if (!r) { F.innerHTML = '<div class="blq">No existe el reporte ' + sel + '.</div>'; return; }
       const A = M.acuerdo(r), pend = r.canal && !r.canal[3];
+      const dias = r.cierre ? Math.round((u.aFecha(r.cierre) - u.aFecha(r.fecha)) / 864e5) : 0;
       const ficha = '<div class="blq"><h3>INCIDENTE</h3>' + fila('Tipo', UI.sem(r.semaforo, M.corto(r.tipo))) + fila('Fecha y hora', u.fmtF(r.fecha) + ', ' + r.hora) + fila('Nivel de riesgo', UI.chipNivel(r.nivel)) +
           fila('Modalidad', r.modo) + fila('Dónde', r.ambito + ' · ' + r.zona + '<br><span class="mini">' + r.lugar + '</span>') + fila('Afectado', r.afectado) + fila('Persona involucrada', persona(r)) +
-          fila('Descripción', revelado[r.cos] ? '<span style="font-size:12px">' + M.descripcion(r) + '</span>' : '<span class="cifrado">' + I.candado + 'Dato cifrado</span>') +
           fila('Primera atención', r.at[0] + ' · ' + u.fmtDur(r.at[1])) + '</div>' +
+        '<div class="blq"><h3>DESCRIPCIÓN DEL INCIDENTE</h3>' + (revelado[r.cos]
+          ? '<div class="acuerdo">' + M.descripcion(r) + '</div><p class="mini" style="margin:6px 0 0">' + (r.desc ? 'Redactada por ' + r.registra + ' al capturar el reporte.' : 'Lo que comentó la persona afectada y una descripción general del hecho.') + '</p>'
+          : '<span class="cifrado">' + I.candado + 'Dato cifrado</span> <button class="chip-exp" data-revelar="' + r.cos + '">Mostrar descripción</button>') + '</div>' +
         '<div class="blq"><h3>EXPEDIENTE</h3>' + fila('Expediente', r.exps.map(e => '<button class="chip-exp" data-exp="' + e + '">' + e + '</button>').join(' ')) +
           fila('Reportes ligados', r.exps.map(e => M.reportesDeExp(e).length).reduce((a, b) => a + b, 0) + ' en total') + fila('Fase', UI.chipFase(r.fase)) + '</div>' +
+        '<div class="blq"><h3>CANALIZACIÓN</h3>' + (r.canal ? fila('Destino', M.DESTINOS[r.canal[0]]) + fila('Fecha', u.fmtF(r.canal[2])) + fila('Oficio', r.canal[1]) + fila('Motivo', M.motivoCanal(r)) +
+          fila('Respuesta', r.canal[3] ? u.fmtF(r.canal[3][0]) + '<br><span style="font-size:12px">' + r.canal[3][1] + '</span>' : '<span class="chip np n-medio">Pendiente</span>' + (gestiona ? ' <button class="chip-exp" id="resp">Registrar respuesta</button>' : ''))
+          : '<p class="mini" style="margin:0">Sin canalización.</p>') + '</div>' +
+        '<div class="blq"><h3>CIERRE Y ACUERDO COSECOVI</h3>' + (A ? fila('Fecha de cierre', u.fmtF(r.cierre) + ' · ' + dias + ' días') + fila('Sesión', A.sesion) +
+          (A.sucedio ? fila('Qué sucedió', A.sucedio) : '') + fila('Medidas', A.medidas + A.firma) +
+          (A.texto ? '<div class="acuerdo"><b>Acuerdo COSECOVI redactado al cierre</b><p style="margin:4px 0 0">' + A.texto + '</p></div>' : '') +
+          '<div class="acuerdo"><b>' + (A.texto ? 'Acciones registradas en el caso' : 'Acuerdo COSECOVI') + '</b><ol>' + A.pasos.map(p => '<li><b>' + p[0] + '</b> · ' + p[1] + ': ' + p[2] + '</li>').join('') + '</ol></div>'
+          : '<p class="mini" style="margin:0">Caso abierto: el Acuerdo COSECOVI se redacta al cerrarlo.</p>') + '</div>' +
         '<div class="blq"><h3>RECOMENDACIÓN APLICABLE</h3>' + fila('Estrategia', M.recDeTipo(r.tipo).titulo) + fila('Acción sugerida', M.siguienteAccion(r)) + '</div>' +
-        '<div class="blq"><h3>CANALIZACIÓN</h3>' + (r.canal ? fila('Destino', M.DESTINOS[r.canal[0]]) + fila('Fecha', u.fmtF(r.canal[2])) + fila('Oficio', r.canal[1]) +
-          fila('Respuesta', r.canal[3] ? u.fmtF(r.canal[3][0]) + '<br><span style="font-size:12px">' + r.canal[3][1] + '</span>' : '<span class="chip np n-medio">Pendiente</span>' + (gestiona ? ' <button class="chip-exp" id="resp">Registrar respuesta</button>' : '')) : '<p class="mini" style="margin:0">Sin canalización.</p>') + '</div>' +
-        '<div class="blq"><h3>CIERRE Y ACUERDO COSECOVI</h3>' + (A ? fila('Fecha de cierre', u.fmtF(r.cierre) + ' · ' + Math.round((u.aFecha(r.cierre) - u.aFecha(r.fecha)) / 864e5) + ' días') + fila('Sesión', A.sesion) +
-          '<div class="acuerdo"><b>Acuerdo COSECOVI</b><ol>' + A.pasos.map(p => '<li><b>' + p[0] + '</b> · ' + p[1] + ': ' + p[2] + '</li>').join('') + '</ol><p style="margin:6px 0 0">' + A.medidas + A.firma + '</p></div>' : '<p class="mini" style="margin:0">Caso abierto.</p>') + '</div>' +
-        (A && r.acuerdoTexto ? '<div class="blq"><h3>CIERRE REGISTRADO EN ESTA SESIÓN</h3>' + fila('Qué sucedió', r.sucedio) + fila('Acuerdo', r.acuerdoTexto) + '</div>' : '') +
         '<div class="blq"><div class="atajos-ir" style="margin-bottom:8px">' + UI.ir('delito', { delito: M.grupoDe(r.tipo) }, 'Analizar el delito') + UI.ir('recomendaciones', { grupo: M.grupoDe(r.tipo) }, 'Ver recomendación') + UI.ir('reportes', { tipo: r.tipo }, 'Ver en el reporte mensual') + '</div>' + fila('Registró', M.USUARIOS[r.registra] + ' · ' + r.registra + '<br><span class="mini">' + u.fmtFH(u.sumaMin(u.aFecha(r.fecha, r.hora), 1)) + '</span>') + '</div>' +
         (gestiona ? '<div class="botones"><button class="btn" id="b-canal"' + (r.cierre ? ' disabled' : '') + '>' + I.enviar + 'Registrar canalización</button><button class="btn lleno" id="b-cerrar"' + (r.cierre ? ' disabled' : '') + '>' + I.check + 'Cerrar caso</button></div>' : '<p class="nota" style="padding:10px 14px">' + I.candado + 'Solo consulta. La canalización y el cierre los registra el coordinador.</p>');
       F.innerHTML = '<div class="ficha-cab"><div><span class="mini">Ficha del caso</span><h2>' + r.cos + '</h2></div><button class="x" id="cerrarF">×</button></div>' +
@@ -177,10 +183,10 @@ UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)
       F.querySelectorAll('.subtabs button').forEach(b => b.onclick = () => { fichaTab = b.dataset.t; pintarFicha(); });
       if ($('b-canal')) $('b-canal').onclick = () => modalCanal(r);
       if ($('b-cerrar')) $('b-cerrar').onclick = () => modalCierre(r);
-      if ($('resp')) $('resp').onclick = () => { const cn = r.canal.slice(); cn[3] = [u.iso(new Date()), 'Respuesta registrada por la coordinación.']; M.modificar(r.cos, { canal: cn }); M.evento(ROL.clave, 'Registro de respuesta de instancia', r.cos, M.DESTINOS[cn[0]]); UI.aviso('Respuesta registrada. Ya se puede cerrar el caso.'); pintarFicha(); };
+      if ($('resp')) $('resp').onclick = () => modalRespuesta(r);
     }
     F.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => seleccionar(b.dataset.exp));
-    F.querySelectorAll('[data-revelar]').forEach(b => b.onclick = () => { revelado[b.dataset.revelar] = 1; M.evento(ROL.clave, 'Consulta de dato cifrado', b.dataset.revelar, 'Persona involucrada y descripción'); UI.aviso('Consulta de dato cifrado registrada en la bitácora automática.'); pintarFicha(); });
+    F.querySelectorAll('[data-revelar]').forEach(b => b.onclick = () => { revelado[b.dataset.revelar] = 1; M.evento(ROL.clave, 'Consulta de dato cifrado', b.dataset.revelar, 'Persona involucrada y descripción del incidente'); UI.aviso('Consulta de dato cifrado registrada en la bitácora automática.'); pintarFicha(); });
     $('cerrarF').onclick = () => { F.innerHTML = '<div class="blq"><p class="nota">' + I.doc + 'Selecciona un caso o un expediente para ver su ficha.</p></div>'; };
   }
 
@@ -189,9 +195,23 @@ UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)
     const v = UI.modal('Registrar canalización · ' + r.cos,
       '<div class="campo"><label>Destino <span class="req">*</span></label><select id="m-dest">' + UI.opts(Object.keys(M.DESTINOS).map(k => [k, M.DESTINOS[k]]), 'DG') + '</select></div>' +
       '<div class="dos-campos"><div class="campo"><label>Fecha</label><input type="date" id="m-fecha" value="' + u.iso(new Date()) + '"></div><div class="campo"><label>Número de oficio</label><input id="m-of" value="' + sig + '"></div></div>' +
+      '<div class="campo" id="mc-mot"><label>Qué se turna y por qué <span class="req">*</span></label><textarea id="m-mot" placeholder="Ejemplo: se solicita que la Comisión de Honor determine las medidas para el alumno involucrado."></textarea><div class="msg-error">Campo obligatorio</div></div>' +
       '<p class="nota">' + I.enviar + 'El modo siempre es por oficio. La fase pasa a Canalizado.</p>',
       '<button class="btn" data-cerrar>Cancelar</button><button class="btn lleno" id="m-ok">Registrar</button>');
-    v.querySelector('#m-ok').onclick = () => { const cn = [v.querySelector('#m-dest').value, v.querySelector('#m-of').value, v.querySelector('#m-fecha').value, null]; M.modificar(r.cos, { canal: cn, fase: 'Canalizado' }); M.evento(ROL.clave, 'Cambio de fase', r.cos, 'En atención COSECOVI → Canalizado · ' + cn[1]); v.remove(); UI.aviso('Canalización registrada en la ruta del caso y en la bitácora automática.'); pintarTabla(); pintarFicha(); };
+    v.querySelector('#m-ok').onclick = () => { const mot = v.querySelector('#m-mot').value.trim(); v.querySelector('#mc-mot').classList.toggle('error', !mot); if (!mot) return;
+      const cn = [v.querySelector('#m-dest').value, v.querySelector('#m-of').value, v.querySelector('#m-fecha').value, null]; M.modificar(r.cos, { canal: cn, fase: 'Canalizado', canalMotivo: mot }); M.evento(ROL.clave, 'Cambio de fase', r.cos, 'En atención COSECOVI → Canalizado · ' + cn[1]); v.remove(); UI.aviso('Canalización registrada en la ruta del caso y en la bitácora automática.'); pintarTabla(); pintarFicha(); };
+  }
+  function modalRespuesta(r) {
+    const v = UI.modal('Registrar respuesta · ' + r.cos,
+      '<p class="nota" style="margin:0 0 10px">' + I.enviar + M.DESTINOS[r.canal[0]] + ' · oficio ' + r.canal[1] + '</p>' +
+      '<div class="campo"><label>Fecha de la respuesta</label><input type="date" id="m-rf" value="' + u.iso(new Date()) + '" min="' + r.canal[2] + '"></div>' +
+      '<div class="campo" id="mc-rt"><label>Qué respondió la instancia <span class="req">*</span></label><textarea id="m-rt"></textarea><div class="msg-error">Campo obligatorio</div></div>',
+      '<button class="btn" data-cerrar>Cancelar</button><button class="btn lleno" id="m-ok">Registrar</button>');
+    v.querySelector('#m-ok').onclick = () => {
+      const t = v.querySelector('#m-rt').value.trim(); v.querySelector('#mc-rt').classList.toggle('error', !t); if (!t) return;
+      const cn = r.canal.slice(); cn[3] = [v.querySelector('#m-rf').value || u.iso(new Date()), t]; M.modificar(r.cos, { canal: cn });
+      M.evento(ROL.clave, 'Registro de respuesta de instancia', r.cos, M.DESTINOS[cn[0]]); v.remove(); UI.aviso('Respuesta registrada. Ya se puede cerrar el caso.'); pintarTabla(); pintarFicha();
+    };
   }
   function modalCierre(r) {
     const pend = r.canal && !r.canal[3];

@@ -24,6 +24,10 @@
   .resultados { border: 1px solid var(--borde); border-radius: 6px; max-height: 150px; overflow-y: auto; }
   .resultados label { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--borde); font-size: 12.5px; cursor: pointer; }
   .resultados input { accent-color: var(--guinda); }
+  .explora { margin: 4px 0 12px; border: 1px solid var(--borde); border-radius: 8px; padding: 12px 12px 4px; background: #fcfafb; }
+  .ex-f { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 0 12px; }
+  .explora table.t td { padding: 7px 10px; } .explora input[type=radio] { accent-color: var(--guinda); width: auto !important; }
+  @media (max-width: 900px) { .ex-f { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
@@ -173,24 +177,32 @@
           campo('fase0', 'Fase inicial', '<input disabled value="En atención COSECOVI">') + '</div>' +
         '<div class="bloque"><h3>CUÁNDO</h3><div class="g2">' + campo('fecha', 'Fecha del incidente', '<input type="date" id="fecha" max="' + u.iso(new Date()) + '">', 1) + campo('hora', 'Hora del incidente', '<input type="time" id="hora">', 1) + '</div></div>' +
         '<div class="bloque"><h3>QUÉ</h3><div class="g2">' + campo('tipo', 'Tipo de incidente', sel('tipo', M.TIPOS, 'Selecciona un tipo de incidente'), 1) +
-          campo('nivel', 'Nivel de riesgo', '<div class="radios"><label><input type="radio" name="nivel" value="Alto">' + UI.icSem('Rojo') + 'Alto</label><label><input type="radio" name="nivel" value="Medio">' + UI.icSem('Amarillo') + 'Medio</label></div>', 1) + '</div>' +
+          campo('nivel', 'Nivel de riesgo <span class="cifrado" style="color:var(--texto-2)">se asigna con la taxonomía</span>', '<div class="radios"><label><input type="radio" name="nivel" value="Alto" disabled>' + UI.icSem('Rojo') + 'Alto</label><label><input type="radio" name="nivel" value="Medio" disabled>' + UI.icSem('Amarillo') + 'Medio</label></div>', 1) + '</div>' +
           campo('desc', 'Descripción del incidente <span class="cifrado">' + I.candado + 'Dato cifrado</span>', '<textarea id="desc" placeholder="Lo que comentó la persona afectada y una descripción general del hecho, en neutro. No es el Acuerdo COSECOVI."></textarea>', 1) + '</div>' +
         '<div class="bloque"><h3>CÓMO <span>· la modalidad depende del tipo elegido en Qué, para no repetir lo que ya indica la taxonomía</span></h3><div class="g2">' + campo('modo', 'Modalidad (cómo ocurrió)', '<select id="modo" disabled><option value="">Primero elige el tipo de incidente</option></select>', 1) +
           '<p class="nota" id="taxo" style="align-self:center"></p></div></div>' +
         '<div class="bloque"><h3>DÓNDE</h3><div class="g2">' + campo('ambito', 'Ámbito', '<div class="seg" id="ambito" style="display:flex"><button type="button" data-a="Interno" class="on" style="flex:1">Interno</button><button type="button" data-a="Externo" style="flex:1">Externo</button></div>', 1) +
           campo('zona', 'Macro-zona del mapa', sel('zona', ZONAS_AMB.Interno, 'Selecciona una macro-zona'), 1) + '</div>' +
           '<div class="g2" id="punto-w" hidden>' + campo('punto', '<span id="punto-lbl">Punto de referencia</span>', '<select id="punto"></select>') + '<p class="nota" id="punto-nota" style="align-self:center"></p></div>' +
-          '<div class="g3" id="interno">' + campo('edif', 'Edificio', sel('edif', M.EDIFICIOS, 'Selecciona')) + campo('piso', 'Piso', sel('piso', M.PISOS, 'Selecciona')) + campo('esp', 'Espacio', sel('esp', M.ESPACIOS, 'Selecciona')) + '</div>' +
+          '<div class="g3" id="interno">' + campo('edif', 'Edificio', sel('edif', M.EDIFICIOS, 'Selecciona')) + campo('piso', 'Piso', sel('piso', M.PISOS, 'Selecciona')) + campo('esp', 'Espacio o salón', '<select id="esp" disabled><option value="">Primero elige edificio y piso</option></select>') + '</div>' +
           '<div class="g4" id="externo" hidden>' + campo('calle', 'Calle y número', '<input id="calle">') + campo('col', 'Colonia', '<input id="col" value="Lindavista">') + campo('entre', 'Entre calles', '<input id="entre">') + campo('ref', 'Referencia para llegar', '<input id="ref">') + '</div></div>' +
         '<div class="bloque"><h3>A QUIÉN</h3><div class="g2">' + campo('afect', 'Tipo de afectado', sel('afect', M.AFECTADOS, 'Selecciona'), 1) +
           campo('pers', 'Persona involucrada <span class="cifrado">' + I.candado + 'Dato cifrado</span>', '<input id="pers" placeholder="Nombre y número de empleado o boleta">') + '</div></div>' +
         '<div class="bloque"><h3>EXPEDIENTE <span>· si no pertenece a uno existente, el sistema crea uno nuevo al guardar</span></h3><div class="g2">' +
           campo('pert', '¿Pertenece a un expediente existente?', '<div class="seg" id="pert" style="display:flex"><button type="button" data-v="no" class="on" style="flex:1">No</button><button type="button" data-v="si" style="flex:1">Sí</button></div>') +
-          '<div id="busq-exp" hidden>' + campo('qexp', 'Buscar por número de expediente o persona involucrada', '<div class="buscar">' + I.buscar + '<input id="qexp" placeholder="EXP-2026-0059 o boleta / núm. de empleado"></div>') + '<div class="resultados" id="res-exp"></div></div></div></div>' +
-        '<div class="bloque"><h3>ATENCIÓN</h3><div class="g2">' + campo('aten', 'Tipo de atención', '<div class="radios"><label><input type="radio" name="aten" value="Inmediata">Inmediata (menos de 1 h)</label><label><input type="radio" name="aten" value="Programada">Programada</label></div>', 1) +
+          '</div><div id="busq-exp" class="explora" hidden>' +
+            '<div class="ex-f">' + campo('qexp', 'Número de expediente o persona involucrada', '<div class="buscar">' + I.buscar + '<input id="qexp" placeholder="EXP-2026-0059 o boleta / núm. de empleado"></div>') +
+              campo('ex-tipo', 'Tipo de incidente', '<select id="ex-tipo"><option value="">Todos</option>' + M.TIPOS.map(t => '<option value="' + t + '">' + M.corto(t) + '</option>').join('') + '</select>') +
+              campo('ex-est', 'Estado', '<select id="ex-est"><option value="">Todos</option><option value="ab">Con reportes abiertos</option><option value="ce">Cerrados</option></select>') +
+              campo('ex-anio', 'Año', '<select id="ex-anio"><option value="">Todos</option>' + [...new Set(M.REPORTES.flatMap(r => r.exps).map(e => e.split('-')[1]))].sort().reverse().map(y => '<option>' + y + '</option>').join('') + '</select>') +
+              campo('ex-ord', 'Ordenar por', '<select id="ex-ord"><option value="rec">Más recientes</option><option value="rep">Más reportes</option><option value="num">Número de expediente</option></select>') + '</div>' +
+            '<div class="t-env"><table class="t"><thead><tr><th></th><th>Expediente</th><th class="num">Reportes</th><th>Tipo(s) de incidente</th><th>Persona involucrada</th><th>Último reporte</th><th>Estado</th></tr></thead><tbody id="res-exp"></tbody></table></div>' +
+            '<div class="pie-tabla"><span id="ex-n"></span><div class="paginas" id="ex-pags"></div></div><div id="ex-sel"></div>' +
+          '</div></div>' +
+        '<div class="bloque"><h3>ATENCIÓN</h3><div class="g2">' + campo('aten', 'Tipo de atención', '<div class="radios"><label><input type="radio" name="aten" value="Inmediata">Inmediata</label><label><input type="radio" name="aten" value="Programada">Programada</label></div>', 1) +
           '<p class="nota" style="align-self:center">' + I.reloj + 'La hora de la primera atención se completa desde la ficha del caso.</p></div></div>' +
         '<button class="btn lleno bloque" id="guardar" style="padding:12px">Guardar reporte</button>' +
-        '<p class="nota" style="margin-top:8px">' + I.escudo + 'Al guardar, el sistema asigna el número de reporte, crea o liga el expediente y registra tu usuario, fecha y hora en la bitácora de auditoría de solo inserción. El reporte entra directo, sin aprobación.</p>' +
+        '<p class="nota" style="margin-top:8px">' + I.escudo + 'Al guardar, el sistema asigna el número de reporte, crea o liga el expediente y registra tu usuario, fecha y hora en la bitácora de auditoría de solo inserción. El reporte entra directo, sin aprobación. En este prototipo se guarda en el navegador: lo ven todos los usuarios que entren desde este equipo, en esta y en las siguientes sesiones, y se suma a todas las gráficas y estadísticas.</p>' +
       '</section>' +
       '<section class="tarjeta" style="margin-top:22px"><div class="tit"><div><small>LISTADO</small><h2>Últimos reportes capturados</h2></div></div><div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Macro-zona</th><th>Tipo de incidente</th><th>Nivel</th><th>Fase</th><th>Expediente</th><th>Registró</th></tr></thead><tbody id="listado"></tbody></table></div>' +
         '<div class="pie-tabla"><span>Información ficticia para fines de visualización · Acceso registrado en bitácora · Esta vista no es exportable</span><span id="nlist"></span></div></section>';
@@ -219,24 +231,54 @@
       donde();
     });
     $('zona').onchange = donde; donde();
-    $('pert').querySelectorAll('button').forEach(b => b.onclick = () => { pertenece = b.dataset.v === 'si'; $('pert').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('busq-exp').hidden = !pertenece; buscarExp(); });
-    function buscarExp() {
-      const q = $('qexp').value.trim().toLowerCase();
-      const exps = M.expedientes(M.REPORTES).filter(e => !q || e.id.toLowerCase().includes(q) || e.reportes.some(r => r.involucrado.toLowerCase().includes(q))).slice(-8).reverse();
-      $('res-exp').innerHTML = exps.map(e => '<label><input type="radio" name="exp" value="' + e.id + '"' + (e.id === expSel ? ' checked' : '') + '><b>' + e.id + '</b> · ' + e.reportes.length + ' reporte(s) · ' + M.corto(e.ultimo.tipo) + ' · ' + UI.chipFase(e.ultimo.fase) + '</label>').join('') || '<p class="nota" style="padding:8px">Sin coincidencias.</p>';
-      $('res-exp').querySelectorAll('input').forEach(i => i.onchange = () => expSel = i.value);
+    /* Edificio → piso → salón: el millar es el edificio y la centena el piso (Edificio 2, piso 3 → aulas 2301 a 2310) */
+    function salones() {
+      const e = $('edif').value, gob = e === 'Edificio de Gobierno', pAct = $('piso').value;
+      const pisos = gob ? ['Planta baja', 'Piso 1'] : M.PISOS;
+      $('piso').innerHTML = '<option value="">Selecciona</option>' + pisos.map(x => '<option' + (x === pAct ? ' selected' : '') + '>' + x + '</option>').join('');
+      const ops = M.espacios(e, $('piso').value), eAct = $('esp').value;
+      $('esp').disabled = !ops.length || !ROL.captura;
+      $('esp').innerHTML = ops.length ? '<option value="">Selecciona</option>' + ops.map(x => '<option' + (x === eAct ? ' selected' : '') + '>' + x + '</option>').join('') : '<option value="">Primero elige edificio y piso</option>';
     }
-    $('qexp').oninput = buscarExp;
+    $('edif').onchange = salones; $('piso').onchange = salones; salones();
+    $('pert').querySelectorAll('button').forEach(b => b.onclick = () => { pertenece = b.dataset.v === 'si'; $('pert').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('busq-exp').hidden = !pertenece; buscarExp(); });
+    /* Explorador de expedientes: busca por número o persona y filtra por tipo, estado y año, con todas las páginas */
+    let exPag = 1;
+    function buscarExp() {
+      const q = $('qexp').value.trim().toLowerCase(), t = $('ex-tipo').value, est = $('ex-est').value, an = $('ex-anio').value, ord = $('ex-ord').value;
+      const porPersona = e => q && e.reportes.some(r => r.involucrado.toLowerCase().includes(q)) && !e.id.toLowerCase().includes(q);
+      let exps = M.expedientes(M.REPORTES).filter(e => (!q || e.id.toLowerCase().includes(q) || porPersona(e)) && (!t || e.reportes.some(r => r.tipo === t)) &&
+        (!est || (est === 'ab') === e.reportes.some(r => r.fase !== 'Cerrado')) && (!an || e.id.split('-')[1] === an));
+      const ult = e => e.ultimo.fecha + e.ultimo.hora;
+      exps.sort(ord === 'rep' ? (a, b) => b.reportes.length - a.reportes.length || (ult(a) < ult(b) ? 1 : -1) : ord === 'num' ? (a, b) => (a.id < b.id ? 1 : -1) : (a, b) => (ult(a) < ult(b) ? 1 : -1));
+      const porPag = 8, n = exps.length; exPag = Math.min(exPag, Math.max(1, Math.ceil(n / porPag)));
+      $('res-exp').innerHTML = exps.slice((exPag - 1) * porPag, exPag * porPag).map(e => {
+        const ab = e.reportes.filter(r => r.fase !== 'Cerrado').length, inv = e.reportes[0].involucrado;
+        return '<tr class="clic' + (e.id === expSel ? ' sel' : '') + '" data-exp="' + e.id + '"><td><input type="radio" name="exp" value="' + e.id + '"' + (e.id === expSel ? ' checked' : '') + ' aria-label="Elegir ' + e.id + '"></td><td><b>' + e.id + '</b></td><td class="num">' + e.reportes.length + '</td>' +
+          '<td>' + [...new Set(e.reportes.map(r => M.corto(r.tipo)))].join(', ') + '</td><td>' + (inv === 'Persona no identificada' ? '<span class="mini">No identificada</span>' : porPersona(e) ? '<span class="chip np r-ok">Coincide con la búsqueda</span>' : '<span class="cifrado">' + I.candado + 'Cifrada</span>') + '</td>' +
+          '<td>' + u.fmtF(e.ultimo.fecha) + '<br><span class="mini">' + e.ultimo.cos + '</span></td><td>' + (ab ? '<span class="chip f-atencion">' + ab + ' abierto' + (ab > 1 ? 's' : '') + '</span>' : '<span class="chip f-cerrado">Cerrado</span>') + '</td></tr>';
+      }).join('') || '<tr><td colspan="7" class="cen" style="padding:16px">Sin expedientes con esa búsqueda.</td></tr>';
+      $('ex-n').textContent = n + ' expediente' + (n === 1 ? '' : 's') + ' encontrado' + (n === 1 ? '' : 's');
+      UI.paginar($('ex-pags'), n, porPag, exPag, p => { exPag = p; buscarExp(); });
+      $('res-exp').querySelectorAll('tr[data-exp]').forEach(tr => tr.onclick = () => { if (!ROL.captura) return; expSel = tr.dataset.exp; buscarExp(); });
+      const e = expSel && M.expedientes(M.REPORTES).find(x => x.id === expSel);
+      $('ex-sel').innerHTML = e ? '<div class="alerta ok" style="margin:10px 0 0">' + I.check + '<div>El reporte se ligará a <b>' + e.id + '</b>: ' + e.reportes.length + ' reporte(s), ' + [...new Set(e.reportes.map(r => M.corto(r.tipo)))].join(', ') + '; último ' + e.ultimo.cos + ' del ' + u.fmtF(e.ultimo.fecha) + '. ' + UI.ir('inspeccion', { caso: e.id }, 'Ver el expediente') + '</div></div>' : '';
+    }
+    ['ex-tipo', 'ex-est', 'ex-anio', 'ex-ord'].forEach(id => $(id).onchange = () => { exPag = 1; buscarExp(); });
+    $('qexp').oninput = () => { exPag = 1; buscarExp(); };
     /* Qué → Cómo: la modalidad se ajusta al tipo de la taxonomía */
     $('tipo').onchange = () => {
       const t = $('tipo').value, m = $('modo');
       m.disabled = !t;
       m.innerHTML = t ? '<option value="">Selecciona la modalidad</option>' + M.MODOS_TIPO[t].map(x => '<option>' + x + '</option>').join('') : '<option value="">Primero elige el tipo de incidente</option>';
+      /* Nivel de riesgo congruente con la taxonomía: semáforo rojo = alto, amarillo = medio */
+      const amar = ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t);
+      document.querySelectorAll('input[name=nivel]').forEach(x => x.checked = !!t && x.value === (amar ? 'Medio' : 'Alto'));
       $('taxo').innerHTML = t ? UI.sem(['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'Amarillo' : 'Rojo', 'Taxonomía: ' + M.grupoDe(t) + ' · semáforo ' + (['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'amarillo' : 'rojo')) : '';
     };
 
     function listar() {
-      const L = M.REPORTES.slice().sort((a, b) => (a.fecha + a.hora) < (b.fecha + b.hora) ? 1 : -1).slice(0, 8);
+      const L = M.REPORTES.slice().reverse().slice(0, 8);  /* orden de captura: lo último que se registró va primero */
       $('listado').innerHTML = L.map(r => '<tr' + (nuevos.includes(r.cos) ? ' class="sel"' : '') + '><td><a class="cos" href="' + UI.enlace('inspeccion', { caso: r.cos }) + '">' + r.cos + '</a></td><td>' + u.fmtF(r.fecha) + '</td><td>' + r.hora + '</td><td>' + r.zona + '</td><td>' + M.corto(r.tipo) + '</td><td>' + UI.chipNivel(r.nivel) + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + r.exps.join(', ') + '</td><td>' + M.USUARIOS[r.registra] + ' · ' + r.registra + '</td></tr>').join('');
       $('nlist').textContent = 'Últimos 8 de ' + M.REPORTES.length + ' reportes';
     }
@@ -247,6 +289,7 @@
       const req = { fecha: val('fecha'), hora: val('hora'), tipo: val('tipo'), nivel: radio('nivel'), desc: val('desc').trim(), modo: val('modo'), zona: val('zona'), afect: val('afect'), aten: radio('aten') };
       let ok = true;
       Object.keys(req).forEach(k => { const c = $('c-' + k); c.classList.toggle('error', !req[k]); if (!req[k]) ok = false; });
+      if (ok && u.aFecha(req.fecha, req.hora) > new Date()) { ok = false; $('c-hora').classList.add('error'); $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'La fecha y hora del incidente no pueden ser posteriores a este momento.</div>'; }
       if (pertenece && !expSel) { ok = false; $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Selecciona el expediente al que pertenece el reporte.</div>'; }
       if (!ok) { M.evento(ROL.clave, 'Guardar reporte', 'Agregar reporte', 'Faltan campos obligatorios: ' + Object.keys(req).filter(k => !req[k]).join(', '), 'Rechazado'); if (!$('msg').innerHTML) $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Revisa los campos marcados en rojo.</div>'; window.scrollTo(0, 0); return; }
       const dup = M.REPORTES.find(r => r.fecha === req.fecha && r.hora === req.hora && r.tipo === req.tipo);
@@ -258,7 +301,7 @@
         : [pt ? LUG[pt].nombre : '', val('calle')].filter(Boolean).join(' · ') || req.zona;
       const lugId = pt || (interior && Object.keys(LUG).find(k => LUG[k].zona === req.zona && val('edif') && LUG[k].nombre.startsWith(val('edif') + ' ·')))
         || Object.keys(LUG).find(k => LUG[k].zona === req.zona && LUG[k].ambito === ambito) || Object.keys(LUG).find(k => LUG[k].zona === req.zona) || 'exp';
-      M.agregarReporte({ cos, fecha: req.fecha, hora: req.hora, tipo: req.tipo, semaforo: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(req.tipo) ? 'Amarillo' : 'Rojo', nivel: req.nivel, modo: req.modo,
+      M.agregarReporte({ cos, desc: req.desc, fecha: req.fecha, hora: req.hora, tipo: req.tipo, semaforo: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(req.tipo) ? 'Amarillo' : 'Rojo', nivel: req.nivel, modo: req.modo,
         ambito, zona: req.zona, lugar, lug: lugId, afectado: req.afect, involucrado: val('pers') || 'Persona no identificada', exps: [exp], liga: pertenece, fase: 'En atención COSECOVI', canal: null, at: [req.aten, req.aten === 'Inmediata' ? 30 : 240], cierre: null, sesion: null, registra: ROL.clave });
       M.evento(ROL.clave, 'Alta de reporte', cos, pertenece ? 'Ligado a ' + exp : 'Expediente ' + exp + ' creado automáticamente');
       nuevos.push(cos); delete $('guardar').dataset.confirmar;
