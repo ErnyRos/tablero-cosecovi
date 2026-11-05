@@ -272,6 +272,72 @@
     return ids.map(id => { const rs = reportesDeExp(id); return { id, reportes: rs, ultimo: rs[rs.length - 1] }; });
   }
 
+
+  /* ---------- Motor de recomendaciones (reglas documentadas, no es un modelo de ML) ----------
+     Cada recomendación corresponde a uno o más grupos de delito. Sus acciones se activan con los
+     casos y expedientes reales del periodo: cada una muestra el dato que la sustenta. Una acción sin
+     casos que la activen se muestra como acción base, sin evidencia en el periodo. */
+  const nomLug = r => (D.lugares[r.lug] ? D.lugares[r.lug].nombre : r.lugar).split(',')[0].split(' · ')[0];
+  function evidencia(rs) {
+    const ex = expedientes(rs), abiertos = rs.filter(r => r.fase !== 'Cerrado');
+    const top = (fn, lista) => { const c = contar(lista || rs, fn), k = mayor(c); return k ? [k, c[k]] : ['—', 0]; };
+    const noct = rs.filter(r => r.hora >= '18:00' || r.hora < '06:00');
+    const fr = contar(rs, r => FRANJAS[franjaDe(r.hora)]), frK = mayor(fr);
+    return {
+      rs, casos: rs.length, expedientes: ex.length, abiertos: abiertos.length, abiertosL: abiertos,
+      enAtencion: rs.filter(r => r.fase === 'En atención COSECOVI').length,
+      canalizados: rs.filter(r => r.canal).length, sinRespuesta: rs.filter(r => r.canal && !r.canal[3] && r.fase !== 'Cerrado').length,
+      reincidencia: ex.filter(e => e.reportes.length > 1).length,
+      lugar: top(nomLug), modo: top(r => r.modo), afectado: top(r => r.afectado),
+      franja: frK ? [frK, fr[frK]] : ['—', 0], nocturnos: noct.length, lugarNoct: top(nomLug, noct),
+      externos: rs.filter(r => r.ambito === 'Externo').length, internos: rs.filter(r => r.ambito === 'Interno').length,
+      digitales: rs.filter(r => r.zona === 'Medios digitales').length, ssc: rs.filter(r => r.canal && r.canal[0] === 'SSC').length,
+      salud: rs.filter(r => r.tipo === 'Consumo de alcohol o drogas').length
+    };
+  }
+  const nc = n => n + (n === 1 ? ' caso' : ' casos');
+  const REC = [
+    { id: 'robos', grupos: ['Robos con o sin violencia'], titulo: 'Robos con o sin violencia', sem: 'Rojo', sub: 'Prioridad en accesos, estacionamiento y trayectos sobre Av. Juan de Dios Bátiz.',
+      acc: [['Reforzar vigilancia en horarios críticos.', E => E.casos && 'Franja ' + E.franja[0] + ' h: ' + E.franja[1] + ' de ' + nc(E.casos) + '; lugar con más casos: ' + E.lugar[0] + ' (' + nc(E.lugar[1]) + ').'],
+        ['Mejorar la iluminación de la zona.', E => E.nocturnos && nc(E.nocturnos) + ' entre 18:00 y 06:00, sobre todo en ' + E.lugarNoct[0] + '.'],
+        ['Realizar campañas de prevención de robo.', E => E.casos && 'Afectado más frecuente: ' + E.afectado[0].toLowerCase() + ' (' + nc(E.afectado[1]) + '); modalidad principal: ' + E.modo[0].toLowerCase() + '.'],
+        ['Coordinar acciones con el jefe de cuadrante de la SSC.', E => E.externos && nc(E.externos) + ' fuera del plantel; ' + E.ssc + ' ya canalizados a la SSC.']] },
+    { id: 'extorsion', grupos: ['Extorsión'], titulo: 'Extorsión', sem: 'Rojo', sub: 'Atención a reportes telefónicos, digitales y presenciales en el entorno del plantel.',
+      acc: [['Difundir los canales institucionales de denuncia.', E => E.casos && nc(E.casos) + ' en ' + E.expedientes + ' expedientes durante el periodo.'],
+        ['Impulsar campañas de concientización sobre riesgos.', E => E.casos && 'Modalidad más común: ' + E.modo[0].toLowerCase() + ' (' + nc(E.modo[1]) + ').'],
+        ['Solicitar apoyo de la Oficina del Abogado General.', E => E.reincidencia && E.reincidencia + ' expedientes con más de un reporte.'],
+        ['Escalar el caso a la autoridad competente.', E => E.abiertos && nc(E.abiertos) + ' sin cerrar, ' + E.sinRespuesta + ' canalizados sin respuesta.']] },
+    { id: 'acoso', grupos: ['Acoso', 'Ciberacoso'], titulo: 'Acoso / Ciberacoso', sem: 'Rojo', sub: 'Acciones de atención confidencial para espacios físicos y canales digitales.',
+      acc: [['Activar los protocolos de la Red de Género.', E => E.enAtencion && nc(E.enAtencion) + ' en atención COSECOVI.'],
+        ['Difundir el Violentómetro y el Acosómetro.', E => E.casos && nc(E.casos) + ', ' + E.digitales + ' por medios digitales.'],
+        ['Canalizar a las instancias correspondientes del IPN.', E => E.canalizados && E.canalizados + ' canalizados, ' + E.sinRespuesta + ' en espera de respuesta.'],
+        ['Dar seguimiento y acompañamiento a la persona afectada.', E => E.abiertos && nc(E.abiertos) + ' abiertos; afectado más frecuente: ' + E.afectado[0].toLowerCase() + '.']] },
+    { id: 'salud', grupos: ['Delitos contra la salud', 'Violencia'], titulo: 'Delitos contra la salud / Violencia', sem: 'Amarillo', sub: 'Prevención focalizada en áreas comunes, estacionamiento y perímetro escolar.',
+      acc: [['Aplicar estrategias de prevención y concientización.', E => E.casos && nc(E.casos) + ' en ' + E.expedientes + ' expedientes durante el periodo.'],
+        ['Realizar campañas sobre consumo de sustancias.', E => E.salud && nc(E.salud) + ' de consumo de alcohol o drogas.'],
+        ['Mantener monitoreo en zonas de riesgo.', E => E.casos && 'Lugar con más casos: ' + E.lugar[0] + ' (' + nc(E.lugar[1]) + '); franja ' + E.franja[0] + ' h.'],
+        ['Coordinar acciones con seguridad interna.', E => E.internos && nc(E.internos) + ' dentro del plantel.']] }
+  ];
+  const recDeTipo = t => REC.find(x => x.grupos.includes(grupoDe(t)));
+  /* Aplica el motor a una lista de casos: una entrada por recomendación, ordenadas por casos abiertos */
+  function recomendar(lista) {
+    return REC.map(x => {
+      const E = evidencia(lista.filter(r => x.grupos.includes(grupoDe(r.tipo))));
+      const acciones = x.acc.map(a => ({ texto: a[0], sustento: a[1](E) || '' }));
+      const prioridad = !E.casos ? 'Sin casos' : x.sem === 'Rojo' ? (E.abiertos ? 'Alta' : 'Media') : (E.abiertos ? 'Media' : 'Seguimiento');
+      return Object.assign({}, x, { E, acciones, activas: acciones.filter(a => a.sustento).length, prioridad });
+    }).sort((a, b) => b.E.abiertos - a.E.abiertos || b.E.casos - a.E.casos);
+  }
+  /* Siguiente acción sugerida para un caso concreto, según su recomendación y su fase */
+  function siguienteAccion(r) {
+    const x = recDeTipo(r.tipo), n = r.exps.map(e => reportesDeExp(e).length).reduce((a, b) => a + b, 0);
+    if (r.fase === 'Cerrado') return 'Caso cerrado con su Acuerdo COSECOVI.';
+    if (r.canal && !r.canal[3]) return 'Dar seguimiento al oficio ' + r.canal[1] + ' con ' + DESTINO_CORTO[r.canal[0]] + '.';
+    if (r.canal && r.canal[3]) return 'Ya respondió ' + DESTINO_CORTO[r.canal[0]] + ': registrar el cierre con su Acuerdo COSECOVI en la próxima sesión.';
+    if (n > 1) return 'Revisar en sesión por reincidencia (' + n + ' reportes en el expediente). ' + x.acc[x.id === 'extorsion' ? 2 : 3][0];
+    return x.acc[0][0];
+  }
+
   /* ---------- Bitácora automática (auditoría) ---------- */
   function auditoria() {
     const A = [];
@@ -316,7 +382,7 @@
     DATOS: D, REPORTES, TIPOS, GRUPOS, DESC_GRUPO, ZONAS, FASES, DESTINOS, DESTINO_CORTO, AFECTADOS, MODOS, MODOS_TIPO, FRANJAS, DIAS, MESES_DATOS,
     EDIFICIOS, PISOS, ESPACIOS, USUARIOS, ACCION_CORTA,
     filtrar, contar, mayor, metricas, indiceGeneral, indiceGrupo, nivelIndice, serieMensual, proyeccion, mesesEntre,
-    descripcion, acuerdo, ruta, rutaDe, expedientes, reportesDeExp, auditoria, grupoDe, corto,
+    descripcion, acuerdo, ruta, rutaDe, expedientes, reportesDeExp, auditoria, grupoDe, corto, REC, recomendar, recDeTipo, siguienteAccion,
     u: { aFecha, sumaMin, iso, hhmm, fmtF, fmtFC, fmtFH, fmtDur, nombreMes, mesCorto, nombrePeriodo, franjaDe, diaDe, pct, dos }
   };
 })();

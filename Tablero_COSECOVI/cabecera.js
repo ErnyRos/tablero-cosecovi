@@ -35,21 +35,20 @@
     flecha: s('<path d="M5 12h14M13 6l6 6-6 6"/>')
   };
 
-  /* Pestañas (7) */
+  /* Pestañas (6) */
   const VISTAS = [
     { id: 'general',         nombre: 'Vista general',                    archivo: '1_vista_general.html' },
     { id: 'delito',          nombre: 'Análisis por delito',              archivo: '2_analisis_delito.html' },
-    { id: 'violentometro',   nombre: 'Violentómetro y Acosómetro',       archivo: '3_violentometro.html' },
     { id: 'recomendaciones', nombre: 'Recomendaciones',                  archivo: '4_recomendaciones.html' },
     { id: 'reportes',        nombre: 'Reportes',                         archivo: '5_reportes.html' },
     { id: 'inspeccion',      nombre: 'Inspección de casos particulares', archivo: '6_inspeccion.html' },
     { id: 'auditoria',       nombre: 'Bitácora automática',              archivo: '7_bitacora_automatica.html' }
   ];
-  /* Permisos por rol. Presidente: todo (consulta, captura, canaliza, cierra y bitácora automática). Coordinador: todo menos la bitácora automática. Vocal: Agregar reporte, Inspección (solo consulta) y Violentómetro. */
+  /* Permisos por rol. Presidente: todo (consulta, captura, canaliza, cierra y bitácora automática). Coordinador: todo menos la bitácora automática. Vocal: Agregar reporte e Inspección (solo consulta). */
   const ROLES = {
     presidente:  { nombre: 'Presidente',     clave: 'PRES-01',  vistas: VISTAS.map(v => v.id), captura: true, gestiona: true },
     coordinador: { nombre: 'Coordinador',    clave: 'COORD-01', vistas: VISTAS.map(v => v.id).filter(i => i !== 'auditoria'), captura: true, gestiona: true },
-    vocal:       { nombre: 'Vocal de apoyo', clave: 'VOC-01',   vistas: ['reportes', 'inspeccion', 'violentometro'], captura: true, gestiona: false }
+    vocal:       { nombre: 'Vocal de apoyo', clave: 'VOC-01',   vistas: ['reportes', 'inspeccion'], captura: true, gestiona: false }
   };
 
   const P = new URLSearchParams(location.search);
@@ -101,7 +100,7 @@
   }
   function cambiarPeriodo(desde, hasta, zona) {
     estado.desde = desde; estado.hasta = hasta < desde ? desde : hasta; if (zona !== undefined) estado.zona = zona;
-    const vieja = document.getElementById('barra-per'); vieja.insertAdjacentHTML('afterend', barraPeriodo()); vieja.remove();
+    const vieja = document.getElementById('barra-per'); vieja.insertAdjacentHTML('afterend', barraPeriodo()); vieja.remove(); ajustarBarra();
     enlazarPeriodo(); sincronizar(); oyentes.forEach(f => f(filtroGlobal()));
   }
   function enlazarPeriodo() {
@@ -226,10 +225,17 @@
   /* ---------- Filtros de la vista en la misma barra superior ----------
      principales: siempre visibles · mas: detrás del botón Más filtros.
      El botón Limpiar conserva el id "limpiar" para que cada vista lo enlace. */
+  /* La barra completa solo aparece si la vista usa el periodo o tiene filtros propios */
+  let usaPeriodo = true;
+  function ajustarBarra() {
+    document.getElementById('barra-per').hidden = !usaPeriodo;
+    document.querySelector('.periodo').hidden = !usaPeriodo && document.getElementById('vf').hidden;
+  }
+  function conPeriodo(v) { usaPeriodo = v !== false; ajustarBarra(); }
   function filtros(principales, mas, limpiar) {
     const vf = document.getElementById('vf');
-    if (!principales && !mas) { vf.hidden = true; vf.innerHTML = ''; return; }
-    vf.hidden = false;
+    if (!principales && !mas) { vf.hidden = true; vf.innerHTML = ''; ajustarBarra(); return; }
+    vf.hidden = false; ajustarBarra();
     vf.innerHTML = '<div class="vf-in"><span class="et">FILTROS</span><div class="vf-prin">' + (principales || '') + '</div>' +
       '<div class="vf-acc">' + (mas ? '<button type="button" class="btn-vf" id="vf-mas" aria-expanded="false">' + ICON.filtro + 'Más filtros <b id="vf-n" hidden></b></button>' : '') +
       (limpiar === false ? '' : '<button type="button" class="btn-vf liso" id="limpiar">Limpiar</button>') + '</div></div>' +
@@ -269,7 +275,7 @@
   window.UI = {
     enlace, ir,
     ICON, ROL, rol: estado.rol, cabecera, encabezado, restringida, filtroGlobal, alCambiarPeriodo: f => oyentes.push(f), aviso,
-    chipFase, chipNivel, claseFase, icSem, sem, kpi, panelTit, opts, tarjetaG, modal, paginar, filtros, fCampo, fSelect, seccion, titSeccion,
+    chipFase, chipNivel, claseFase, icSem, sem, kpi, panelTit, opts, tarjetaG, modal, paginar, filtros, conPeriodo, fCampo, fSelect, seccion, titSeccion,
     periodoTexto: () => M.u.nombrePeriodo(estado.desde, estado.hasta) + (estado.zona ? ' · ' + estado.zona : '')
   };
 })();

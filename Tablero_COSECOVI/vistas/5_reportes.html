@@ -53,6 +53,7 @@
     const g = UI.filtroGlobal(), iB = MESES.indexOf(g.hasta);
     $('enc').innerHTML = UI.encabezado('escudo', 'CONCENTRADO INSTITUCIONAL', 'Reporte COSECOVI', 'Reporte mensual único para la COSECOVI de Dirección General y, por su conducto, para Secretaría General.',
       '<button class="btn" id="xls">' + I.descarga + 'Exportar a Excel</button><button class="btn lleno" id="pdf">' + I.descarga + 'Exportar a PDF</button>');
+    UI.conPeriodo(true);
     const q = new URLSearchParams(location.search), fs = k => FILTROS.find(f => f[0] === k);
     const sf = k => { const f = fs(k); return UI.fSelect('f-' + k, f[1], f[2], q.get(k) || '', 'Todos', ' data-k="' + k + '"'); };
     UI.filtros(
@@ -144,7 +145,7 @@
   /* ======================= AGREGAR REPORTE ======================= */
   const nuevos = [];
   function vistaAgregar() {
-    UI.filtros(null);
+    UI.filtros(null); UI.conPeriodo(false);
     const sig = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
     $('enc').innerHTML = UI.encabezado('doc', 'CAPTURA', 'Agregar reporte', 'Registra un nuevo incidente para integrarlo al expediente de COSECOVI.', UI.restringida());
     const campo = (id, et, ctrl, req, cls) => '<div class="campo' + (cls ? ' ' + cls : '') + '" id="c-' + id + '"><label for="' + id + '">' + et + (req ? ' <span class="req">*</span>' : '') + '</label>' + ctrl + '<div class="msg-error">Campo obligatorio</div></div>';
@@ -176,7 +177,7 @@
         '<button class="btn lleno bloque" id="guardar" style="padding:12px">Guardar reporte</button>' +
         '<p class="nota" style="margin-top:8px">' + I.escudo + 'Al guardar, el sistema asigna el número de reporte, crea o liga el expediente y registra tu usuario, fecha y hora en la bitácora de auditoría de solo inserción. El reporte entra directo, sin aprobación.</p>' +
       '</section>' +
-      '<section class="tarjeta" style="margin-top:22px"><div class="tit"><div><small>LISTADO</small><h2>Reportes capturados en el periodo</h2></div></div><div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Macro-zona</th><th>Tipo de incidente</th><th>Nivel</th><th>Fase</th><th>Expediente</th><th>Registró</th></tr></thead><tbody id="listado"></tbody></table></div>' +
+      '<section class="tarjeta" style="margin-top:22px"><div class="tit"><div><small>LISTADO</small><h2>Últimos reportes capturados</h2></div></div><div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Macro-zona</th><th>Tipo de incidente</th><th>Nivel</th><th>Fase</th><th>Expediente</th><th>Registró</th></tr></thead><tbody id="listado"></tbody></table></div>' +
         '<div class="pie-tabla"><span>Información ficticia para fines de visualización · Acceso registrado en bitácora · Esta vista no es exportable</span><span id="nlist"></span></div></section>';
 
     if (!ROL.captura) {
@@ -220,11 +221,11 @@
     };
 
     function listar() {
-      const L = M.filtrar(UI.filtroGlobal()).slice().reverse().slice(0, 8);
+      const L = M.REPORTES.slice().sort((a, b) => (a.fecha + a.hora) < (b.fecha + b.hora) ? 1 : -1).slice(0, 8);
       $('listado').innerHTML = L.map(r => '<tr' + (nuevos.includes(r.cos) ? ' class="sel"' : '') + '><td><a class="cos" href="' + UI.enlace('inspeccion', { caso: r.cos }) + '">' + r.cos + '</a></td><td>' + u.fmtF(r.fecha) + '</td><td>' + r.hora + '</td><td>' + r.zona + '</td><td>' + M.corto(r.tipo) + '</td><td>' + UI.chipNivel(r.nivel) + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + r.exps.join(', ') + '</td><td>' + M.USUARIOS[r.registra] + ' · ' + r.registra + '</td></tr>').join('');
-      $('nlist').textContent = 'Últimos 8 de ' + M.filtrar(UI.filtroGlobal()).length;
+      $('nlist').textContent = 'Últimos 8 de ' + M.REPORTES.length + ' reportes';
     }
-    listar(); UI.alCambiarPeriodo(listar);
+    listar();
 
     $('guardar').onclick = () => {
       const val = id => ($(id) || {}).value, radio = n => (document.querySelector('input[name=' + n + ']:checked') || {}).value;
