@@ -83,6 +83,9 @@
   let S = { nuevos: [], cambios: {}, eventos: [], canales: null };
   try { S = Object.assign(S, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) {}
   const guardarS = () => { try { localStorage.setItem(CLAVE, JSON.stringify(S)); } catch (e) {} };
+  /* Acciones guardadas por versiones anteriores con la fecha simulada del 31 dic: se descartan porque quedarían en el futuro */
+  const sinFuturo = () => { const lim = Date.now() + 60000, n = S.eventos.length; S.eventos = S.eventos.filter(e => new Date(e.d).getTime() <= lim); return n !== S.eventos.length; };
+  if (sinFuturo()) guardarS();
   S.nuevos.forEach(r => REPORTES.push(Object.assign({}, r)));
   Object.keys(S.cambios).forEach(cos => { const r = REPORTES.find(x => x.cos === cos); if (r) Object.assign(r, S.cambios[cos]); });
   /* Fecha y hora reales del equipo: todo lo que hacen los usuarios se registra con ellas */
@@ -90,7 +93,7 @@
   function agregarReporte(r) { REPORTES.push(r); S.nuevos.push(r); guardarS(); }
   function modificar(cos, campos) { const r = REPORTES.find(x => x.cos === cos); Object.assign(r, campos); S.cambios[cos] = Object.assign(S.cambios[cos] || {}, campos); guardarS(); return r; }
   /* Los eventos se releen antes de escribir para no perder lo registrado en otra pestaña */
-  const releerEventos = () => { try { const g = JSON.parse(localStorage.getItem(CLAVE)); if (g && Array.isArray(g.eventos) && g.eventos.length >= S.eventos.length) S.eventos = g.eventos; } catch (e) {} };
+  const releerEventos = () => { try { const g = JSON.parse(localStorage.getItem(CLAVE)); if (g && Array.isArray(g.eventos) && g.eventos.length >= S.eventos.length) { S.eventos = g.eventos; sinFuturo(); } } catch (e) {} };
   function evento(usuario, accion, objeto, detalle, resultado) { releerEventos(); S.eventos.push({ d: new Date().toISOString(), usuario, accion, objeto: objeto || '—', detalle: detalle || '', resultado: resultado || 'Correcto' }); guardarS(); }
   function preferencia(k, v) { if (v === undefined) return S[k]; S[k] = v; guardarS(); }
   /* Sesión iniciada: el rol sale del usuario que entró, no del enlace */
@@ -374,7 +377,7 @@
     S.eventos.forEach((e, i) => A.push({ i: i + 1, d: new Date(e.d), usuario: e.usuario, rol: USUARIOS[e.usuario] || 'Sistema', accion: e.accion, objeto: e.objeto, detalle: e.detalle, resultado: e.resultado, sesion: true }));
     /* El historial sintético solo llega hasta hoy: nada de la bitácora puede tener fecha futura */
     const hoy = new Date();
-    return A.filter(e => e.sesion || e.d <= hoy).sort((a, b) => (b.d - a.d) || ((b.i || 0) - (a.i || 0)));
+    return A.filter(e => e.d <= new Date(hoy.getTime() + 60000)).sort((a, b) => (b.d - a.d) || ((b.i || 0) - (a.i || 0)));
   }
 
   const CASO_VALIDADO = (D.reportes.find(r => r.clave === 'validado') || D.reportes[0]).cos;
