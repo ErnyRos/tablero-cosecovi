@@ -25,9 +25,9 @@
      serie [{mes:'2026-01', n}], proy [{mes, n}], resaltar ['2026-07'] */
   function linea(serie, opc) {
     opc = opc || {};
-    const proy = opc.proy || [], todo = serie.concat(proy), W = opc.W || 520, H = opc.H || 180, pl = 30, pr = 14, pt = 20, pb = 26;
+    const proy = opc.proy || [], todo = serie.concat(proy), variosAnios = new Set(todo.map(d => d.mes.slice(0, 4))).size > 1, W = opc.W || 520, H = (opc.H || 180) + (variosAnios ? 12 : 0), pl = 30, pr = 14, pt = 20, pb = variosAnios ? 38 : 26;
     if (!todo.length) return '<p class="nota">Sin datos en el periodo.</p>';
-    const max = Math.max(5, Math.ceil(Math.max(...todo.map(d => d.n)) / 5) * 5);
+    const vmax = Math.max(1, ...todo.map(d => d.n)), paso = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500].find(p => p * 4 >= vmax) || Math.ceil(vmax / 4), max = paso * 4;
     const x = i => todo.length === 1 ? (pl + W - pr) / 2 : pl + i * (W - pl - pr) / (todo.length - 1), y = v => pt + (1 - v / max) * (H - pt - pb);
     let g = '';
     for (let v = 0; v <= max; v += max / 4) g += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#ece6e9"/><text x="' + (pl - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="#7a7075">' + Math.round(v) + '</text>';
@@ -38,7 +38,7 @@
     const puntos = todo.map((d, i) => { const esP = i >= serie.length, on = res.includes(d.mes) || (!res.length && i === serie.length - 1 && !esP);
       return '<circle cx="' + x(i) + '" cy="' + y(d.n) + '" r="' + (on ? 5 : 3.5) + '" fill="' + (on ? COL.guinda : '#fff') + '" stroke="' + COL.guinda + '" stroke-width="2"' + (esP ? ' stroke-dasharray="2 2"' : '') + '/>' +
         '<text x="' + x(i) + '" y="' + (y(d.n) - 9) + '" text-anchor="middle" font-size="10.5" font-weight="' + (on ? 700 : 500) + '" fill="' + (esP ? '#7a7075' : '#2a2326') + '">' + d.n + '</text>' +
-        '<text x="' + x(i) + '" y="' + (H - 7) + '" text-anchor="middle" font-size="10.5" fill="#5f565b">' + M.u.mesCorto(d.mes) + '</text>'; }).join('');
+        '<text x="' + x(i) + '" y="' + (H - (variosAnios ? 19 : 7)) + '" text-anchor="middle" font-size="10.5" fill="#5f565b">' + M.u.mesCorto(d.mes) + '</text>' + (variosAnios && (i === 0 || d.mes.endsWith('-01')) ? '<text x="' + x(i) + '" y="' + (H - 5) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#6e1538">' + d.mes.slice(0, 4) + '</text>' : ''); }).join('');
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img">' + g + area +
       (serie.length > 1 ? '<polyline points="' + pts + '" fill="none" stroke="' + COL.guinda + '" stroke-width="2.5"/>' : '') +
       (pPts ? '<polyline points="' + pPts + '" fill="none" stroke="' + COL.guinda + '" stroke-width="2" stroke-dasharray="6 5"/>' : '') + puntos + '</svg>' +
@@ -59,5 +59,12 @@
       '<div class="leyenda"><span><i style="background:' + COL.A + '"></i>' + nA + '</span><span><i style="background:' + COL.guinda + '"></i>' + nB + '</span></div>';
   }
 
-  window.G = { COL, barras, dona, linea, columnas, pares };
+  /* Paleta para donas de varias partes y conteos listos para graficar */
+  const PAL = ['#6e1538', '#b06787', '#1e5f9e', '#6b3fa0', '#8a929c', '#e9b300', '#1f7a4d', '#d38aa6'];
+  const partes = (lista, fn, claves, colores) => claves.map((k, i) => ({ et: Array.isArray(k) ? k[1] : k, v: lista.filter(r => fn(r) === (Array.isArray(k) ? k[0] : k)).length, color: (colores || PAL)[i % (colores || PAL).length] }));
+  const conteo = (lista, fn, claves) => claves.map(k => ({ et: Array.isArray(k) ? k[1] : k, v: lista.filter(r => fn(r) === (Array.isArray(k) ? k[0] : k)).length }));
+  const top = (lista, fn, n) => { const c = {}; lista.forEach(r => { const k = fn(r); c[k] = (c[k] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a]).slice(0, n || 6).map(k => ({ et: k, v: c[k] })); };
+  const rangos = (lista, fn, cortes) => cortes.map(c => ({ et: c[0], v: lista.filter(r => { const v = fn(r); return v !== null && v !== undefined && v >= c[1] && v < c[2]; }).length }));
+
+  window.G = { COL, PAL, barras, dona, linea, columnas, pares, partes, conteo, top, rangos };
 })();

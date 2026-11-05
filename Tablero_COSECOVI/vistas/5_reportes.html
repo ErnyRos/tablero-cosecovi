@@ -62,7 +62,10 @@
         UI.fCampo('b-d', 'Periodo B · desde / hasta', '<div class="per-sel">' + selMes('b-d', g.hasta) + selMes('b-h', g.hasta) + '</div>') : '') +
       sf('tipo') + sf('semaforo') + sf('fase'),
       sf('modo') + sf('ambito') + sf('afectado') + sf('destino') + sf('atencion'));
-    $('cont').innerHTML = '<div id="principal" style="display:grid;gap:22px"></div>';
+    $('cont').innerHTML = '<div id="principal" style="display:grid;grid-template-columns:minmax(0,1fr);gap:22px"></div><div id="estad" style="margin-top:22px"' + (comparar ? ' hidden' : '') + '></div>' +
+      '<p class="nota-info" style="margin-top:22px">' + I.alerta + 'El reporte se entrega cada mes a la COSECOVI de Dirección General en PDF o Excel. Al Consejo Técnico solo se le turnan los casos que lo ameritan.</p>';
+    EST = UI.estadisticas($('estad'), { sub: 'Resumen, flujo de atención, canalización y distribución de los incidentes del reporte.',
+      campos: ['ambito', 'afectado', 'semaforo', 'fase', 'atencion'], vinculo: { ambito: 'f-ambito', afectado: 'f-afectado', semaforo: 'f-semaforo', fase: 'f-fase', atencion: 'f-atencion' }, alCambiar: () => pintarEst() });
     $('modo').querySelectorAll('button').forEach(b => b.onclick = () => { comparar = b.dataset.m === '1'; vistaMensual(); });
     $('vf').querySelectorAll('select[data-k], .per-sel select').forEach(s => s.onchange = () => { pag = 1; pintarMensual(); });
     $('limpiar').onclick = () => { $('vf').querySelectorAll('select[data-k]').forEach(s => s.value = ''); pintarMensual(); };
@@ -95,16 +98,28 @@
         '<div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Incidente</th><th>Ámbito</th><th>Afectado</th><th>Ubicación</th><th>Fase</th><th>Destino · oficio</th></tr></thead><tbody>' +
         vis.map(r => '<tr><td>' + (UI.enlace('inspeccion', { caso: r.cos }) ? '<a class="cos" href="' + UI.enlace('inspeccion', { caso: r.cos }) + '">' + r.cos + '</a>' : '<b>' + r.cos + '</b>') + '</td><td>' + u.fmtF(r.fecha) + '</td><td>' + r.hora + '</td><td>' + UI.sem(r.semaforo, M.corto(r.tipo)) + '</td><td>' + r.ambito + '</td><td>' + r.afectado + '</td>' +
           '<td>' + r.zona + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + (r.canal ? M.DESTINO_CORTO[r.canal[0]] + (r.canal[0] === 'CT' ? '<span class="ct">CT</span>' : '') + '<br><span style="font-size:11.5px">' + r.canal[1] + '</span>' : '—') + '</td></tr>').join('') +
-        '</tbody></table></div><div class="pie-tabla"><span>Mostrando ' + (L.length ? (pag - 1) * porPag + 1 : 0) + '–' + Math.min(pag * porPag, L.length) + ' de ' + L.length + ' incidentes</span><div class="paginas" id="pags"></div></div></section>' +
-      UI.seccion('Estadísticas', 'Resumen, flujo de atención y canalización del periodo.', [
+        '</tbody></table></div><div class="pie-tabla"><span>Mostrando ' + (L.length ? (pag - 1) * porPag + 1 : 0) + '–' + Math.min(pag * porPag, L.length) + ' de ' + L.length + ' incidentes</span><div class="paginas" id="pags"></div></div></section>';
+    ultimaL = L; pintarEst();
+    UI.paginar($('pags'), L.length, porPag, pag, p => { pag = p; pintarMensual(); });
+  }
+
+  let EST = null, ultimaL = [];
+  function pintarEst() {
+    const L = EST.filtrar(ultimaL), K = M.metricas(L), f = UI.filtroGlobal(), amar = t => ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t);
+    EST.pintar([
+
         UI.tarjetaG('RESUMEN', 'Resumen del periodo', '<table class="t"><tbody>' + [['Reportes', K.total], ['Expedientes', K.expedientes], ['% de cierre', K.pctCierre + ' %'], ['Atención inmediata', K.inmediata + ' de ' + K.total],
           ['1.ª atención promedio', K.primeraAtencionH + ' h'], ['Cierre promedio', K.cierreDias + ' días'], ['Interno / externo', K.interno + ' / ' + K.externo]].map(f => '<tr><td>' + f[0] + '</td><td class="num"><b>' + f[1] + '</b></td></tr>').join('') + '</tbody></table>'),
         UI.tarjetaG('FLUJO DE ATENCIÓN', 'Reportes por fase', G.dona([{ et: 'En atención COSECOVI', v: K.enAtencion, color: G.COL.atencion }, { et: 'Canalizado', v: K.canalizado, color: G.COL.canal }, { et: 'Cerrado', v: K.cerrado, color: G.COL.cerrado }])),
         UI.tarjetaG('CANALIZACIÓN', 'Por destino', G.barras([{ et: 'Dirección General', v: K.porDestino.DG }, { et: 'Consejo Técnico', v: K.porDestino.CT }, { et: 'SSC', v: K.porDestino.SSC }], G.COL.canal, 110) +
-          '<p class="nota" style="margin-top:10px">' + I.enviar + 'El modo de canalización siempre es por oficio.</p>')
-      ]) +
-      '<p class="nota-info">' + I.alerta + 'El reporte se entrega cada mes a la COSECOVI de Dirección General en PDF o Excel. Al Consejo Técnico solo se le turnan los casos que lo ameritan.</p>';
-    UI.paginar($('pags'), L.length, porPag, pag, p => { pag = p; pintarMensual(); });
+          '<p class="nota" style="margin-top:10px">' + I.enviar + 'El modo de canalización siempre es por oficio.</p>'),
+      UI.tarjetaG('TENDENCIA', 'Incidentes por mes', G.linea(M.serieMensual(L, f.desde, f.hasta), { W: 380, H: 180 })),
+      UI.tarjetaG('DELITOS', 'Por tipo de incidente', G.barras(M.TIPOS.map(t => ({ et: M.corto(t), v: L.filter(r => r.tipo === t).length, color: amar(t) ? G.COL.amar : G.COL.rojo })), null, 130)),
+      UI.tarjetaG('DÓNDE', 'Por macro-zona', G.barras(G.conteo(L, r => r.zona, M.ZONAS), G.COL.guinda, 120)),
+      UI.tarjetaG('ÁMBITO', 'Interno y externo', G.dona(G.partes(L, r => r.ambito, ['Interno', 'Externo']))),
+      UI.tarjetaG('ATENCIÓN', 'Tipo de atención', G.dona(G.partes(L, r => r.at[0], ['Inmediata', 'Programada'], [G.COL.atencion, '#9fb8d3']))),
+      UI.tarjetaG('A QUIÉN', 'Por tipo de afectado', G.barras(G.conteo(L, r => r.afectado, M.AFECTADOS), G.COL.guinda, 80))
+    ], L.length);
   }
 
   function pintarComparar() {
@@ -146,7 +161,7 @@
   const nuevos = [];
   function vistaAgregar() {
     UI.filtros(null); UI.conPeriodo(false);
-    const sig = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
+    const sig = M.sigCOS();
     $('enc').innerHTML = UI.encabezado('doc', 'CAPTURA', 'Agregar reporte', 'Registra un nuevo incidente para integrarlo al expediente de COSECOVI.', UI.restringida());
     const campo = (id, et, ctrl, req, cls) => '<div class="campo' + (cls ? ' ' + cls : '') + '" id="c-' + id + '"><label for="' + id + '">' + et + (req ? ' <span class="req">*</span>' : '') + '</label>' + ctrl + '<div class="msg-error">Campo obligatorio</div></div>';
     /* Macro-zonas que corresponden a cada ámbito, para que el formulario no mezcle lugares de dentro y de fuera */
@@ -236,9 +251,8 @@
       if (!ok) { M.evento(ROL.clave, 'Guardar reporte', 'Agregar reporte', 'Faltan campos obligatorios: ' + Object.keys(req).filter(k => !req[k]).join(', '), 'Rechazado'); if (!$('msg').innerHTML) $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Revisa los campos marcados en rojo.</div>'; window.scrollTo(0, 0); return; }
       const dup = M.REPORTES.find(r => r.fecha === req.fecha && r.hora === req.hora && r.tipo === req.tipo);
       if (dup && !$('guardar').dataset.confirmar) { M.evento(ROL.clave, 'Guardar reporte', 'Agregar reporte', 'Posible duplicado de ' + dup.cos, 'Advertencia'); $('guardar').dataset.confirmar = 1; $('msg').innerHTML = '<div class="alerta mal">' + I.alerta + 'Posible duplicado de ' + dup.cos + ' (misma fecha, hora y tipo). Pulsa Guardar otra vez para confirmar.</div>'; window.scrollTo(0, 0); return; }
-      const cos = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
-      const nExp = new Set(M.REPORTES.flatMap(r => r.exps)).size + 1;
-      const exp = pertenece ? expSel : 'EXP-2026-' + String(nExp).padStart(4, '0');
+      const cos = M.sigCOS();
+      const exp = pertenece ? expSel : M.sigEXP();
       const pt = val('punto'), interior = ambito === 'Interno' && req.zona === 'Interior del plantel';
       const lugar = interior ? [val('edif'), val('piso'), val('esp')].filter(Boolean).join(' · ') || req.zona
         : [pt ? LUG[pt].nombre : '', val('calle')].filter(Boolean).join(' · ') || req.zona;

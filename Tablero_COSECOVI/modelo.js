@@ -48,9 +48,12 @@
   const PISOS = ['Planta baja', 'Piso 1', 'Piso 2', 'Piso 3'];
   const ESPACIOS = ['Aula 1001', 'Aula 2001', 'Aula 3001', 'Aula 4001', 'Lab. Ciencia de Datos 1', 'Lab. Ciencia de Datos 2', 'Lab. Redes y Circuitos', 'Lab. IA', 'Lab. Sistemas', 'Pasillo', 'Ventanillas'];
 
-  /* Meses con datos: ene–dic 2026 */
+  /* Meses con datos: del mes del primer reporte al mes actual (incluye el mes en curso para lo que se capture hoy) */
   const MESES_DATOS = [];
-  for (let m = 1; m <= 12; m++) MESES_DATOS.push('2026-' + String(m).padStart(2, '0'));
+  (() => { const hoy = new Date(), fin = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    const ult = D.reportes.reduce((m, r) => r.fecha.slice(0, 7) > m ? r.fecha.slice(0, 7) : m, fin);
+    let [y, m] = D.reportes.reduce((a, r) => r.fecha < a ? r.fecha : a, '9999').slice(0, 7).split('-').map(Number);
+    while (true) { const k = y + '-' + String(m).padStart(2, '0'); MESES_DATOS.push(k); if (k >= ult) break; m++; if (m > 12) { m = 1; y++; } } })();
 
   /* ---------- Utilidades de fecha ---------- */
   const dos = n => String(n).padStart(2, '0');
@@ -64,7 +67,7 @@
   const fmtDur = m => m < 60 ? m + ' min' : (Math.round(m / 6) / 10) + ' h';
   const nombreMes = ym => MESES[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
   const mesCorto = ym => MES_C[+ym.slice(5, 7) - 1];
-  const nombrePeriodo = (desde, hasta) => desde === hasta ? nombreMes(desde) : MES_C[+desde.slice(5) - 1] + ' — ' + MES_C[+hasta.slice(5) - 1] + ' ' + hasta.slice(0, 4);
+  const nombrePeriodo = (desde, hasta) => desde === hasta ? nombreMes(desde) : MES_C[+desde.slice(5) - 1] + (desde.slice(0, 4) !== hasta.slice(0, 4) ? ' ' + desde.slice(0, 4) : '') + ' — ' + MES_C[+hasta.slice(5) - 1] + ' ' + hasta.slice(0, 4);
   const franjaDe = h => Math.floor(+h.slice(0, 2) / 3);
   const diaDe = f => (aFecha(f).getDay() + 6) % 7;
   const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
@@ -79,7 +82,7 @@
      cierres, eventos de la bitácora) se guarda en localStorage para que
      siga ahí al pasar de una pestaña a otra y al cerrar y volver a abrir el
      navegador. Solo se borra con «Restablecer prototipo» (pie de página). */
-  const CLAVE = 'cosecovi_prototipo_v2';  /* cambia la versión si cambian los datos base */
+  const CLAVE = 'cosecovi_prototipo_v3';  /* cambia la versión si cambian los datos base */
   let S = { nuevos: [], cambios: {}, eventos: [], canales: null };
   try { S = Object.assign(S, JSON.parse(localStorage.getItem(CLAVE)) || {}); } catch (e) {}
   const guardarS = () => { try { localStorage.setItem(CLAVE, JSON.stringify(S)); } catch (e) {} };
@@ -90,6 +93,12 @@
   Object.keys(S.cambios).forEach(cos => { const r = REPORTES.find(x => x.cos === cos); if (r) Object.assign(r, S.cambios[cos]); });
   /* Fecha y hora reales del equipo: todo lo que hacen los usuarios se registra con ellas */
   const ahora = () => new Date();
+  /* Folios consecutivos por año, como en el sistema real */
+  const anioHoy = () => String(new Date().getFullYear());
+  const sigFolio = (pref, lista) => { const y = anioHoy(), n = lista.filter(x => x.startsWith(pref + '-' + y + '-')).map(x => +x.split('-').pop()); return pref + '-' + y + '-' + String((n.length ? Math.max(...n) : 0) + 1).padStart(pref === 'OF-COSECOVI' ? 3 : 4, '0'); };
+  const sigCOS = () => sigFolio('COS', REPORTES.map(r => r.cos));
+  const sigEXP = () => sigFolio('EXP', [...new Set(REPORTES.flatMap(r => r.exps))]);
+  const sigOficio = () => sigFolio('OF-COSECOVI', REPORTES.filter(r => r.canal).map(r => r.canal[1]));
   function agregarReporte(r) { REPORTES.push(r); S.nuevos.push(r); guardarS(); }
   function modificar(cos, campos) { const r = REPORTES.find(x => x.cos === cos); Object.assign(r, campos); S.cambios[cos] = Object.assign(S.cambios[cos] || {}, campos); guardarS(); return r; }
   /* Los eventos se releen antes de escribir para no perder lo registrado en otra pestaña */
@@ -189,15 +198,19 @@
   function serieMensual(lista, desde, hasta) {
     return mesesEntre(desde, hasta).map(m => ({ mes: m, n: lista.filter(r => r.fecha.startsWith(m)).length }));
   }
-  /* Proyección lineal simple de k meses */
-  function proyeccion(serie, k) {
+  /* Mes en curso: está incompleto, así que no entra en el cálculo de la tendencia */
+  const mesActual = () => { const d = new Date(); return d.getFullYear() + '-' + dos(d.getMonth() + 1); };
+  /* Proyección lineal simple de k meses (con meses completos) */
+  function proyeccion(serieTodo, k) {
+    const ultimo = serieTodo.length ? serieTodo[serieTodo.length - 1].mes : null;
+    const serie = ultimo === mesActual() ? serieTodo.slice(0, -1) : serieTodo;
     const n = serie.length; if (n < 2) return [];
     const xs = serie.map((_, i) => i), ys = serie.map(s => s.n);
     const mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
     const b = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / (xs.reduce((s, x) => s + (x - mx) ** 2, 0) || 1);
     const a = my - b * mx;
-    const out = []; let [y, m] = serie[n - 1].mes.split('-').map(Number);
-    for (let i = 1; i <= k; i++) { m++; if (m > 12) { m = 1; y++; } out.push({ mes: y + '-' + dos(m), n: Math.max(0, Math.round((a + b * (n - 1 + i)) * 10) / 10) }); }
+    const out = []; let [y, m] = ultimo.split('-').map(Number), d0 = n - 1 + (ultimo === mesActual() ? 1 : 0);
+    for (let i = 1; i <= k; i++) { m++; if (m > 12) { m = 1; y++; } out.push({ mes: y + '-' + dos(m), n: Math.max(0, Math.round((a + b * (d0 + i)) * 10) / 10) }); }
     return out;
   }
 
@@ -359,20 +372,20 @@
       if (r.cierre) add(aFecha(r.cierre, '13:04'), 'COORD-01', 'Cambio de fase', r.cos, (r.canal ? 'Canalizado' : 'En atención COSECOVI') + ' → Cerrado');
     });
     MESES_DATOS.forEach((m, i) => {
-      const ult = new Date(2026, i + 1, 0).getDate();
+      const ult = new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
       add(aFecha(m + '-' + dos(ult), '18:10'), 'COORD-01', 'Exportación', 'Reportes', 'Reporte mensual ' + nombreMes(m).toLowerCase() + ' · PDF');
       add(aFecha(m + '-' + dos(ult), '18:11'), 'COORD-01', 'Exportación', 'Reportes', 'Reporte mensual ' + nombreMes(m).toLowerCase() + ' · Excel');
       login(aFecha(m + '-' + dos(ult - 1), '17:55'), 'PRES-01');
       add(aFecha(m + '-' + dos(ult - 1), '17:58'), 'PRES-01', 'Consulta', 'Inspección de casos particulares', 'Ficha de caso');
       [7, 14, 21, 28].forEach(d => add(aFecha(m + '-' + dos(d), '03:00'), 'Sistema', 'Respaldo completo semanal', 'Base de datos', 'Cifrado AES-256'));
     });
-    add(aFecha('2026-03-04', '12:02'), 'VOC-02', 'Intento de abrir vista', 'Vista general', 'Vista fuera del rol', 'Denegado');
-    add(aFecha('2026-05-19', '10:50'), 'VOC-01', 'Intento de abrir vista', 'Recomendaciones', 'Vista fuera del rol', 'Denegado');
-    add(aFecha('2026-08-11', '11:30'), 'COORD-01', 'Intento de abrir vista', 'Bitácora automática', 'Vista fuera del rol', 'Denegado');
-    add(aFecha('2026-06-16', '07:52'), 'VOC-02', 'Inicio de sesión', '—', '5 intentos fallidos; cuenta bloqueada', 'Bloqueado');
-    add(aFecha('2026-07-21', '13:40'), 'VOC-02', 'Sesión expirada', '—', '15 min sin actividad', 'Cerrada');
-    add(aFecha('2026-07-15', '10:20'), 'COORD-01', 'Corrección de reporte', (D.reportes.find(r => r.clave === 'validado') || {}).cos, 'Espacio: Pasillo piso 1 → Pasillo piso 2');
-    add(aFecha('2026-09-24', '09:12'), 'COORD-01', 'Corrección de reporte', D.reportes.filter(r => r.clave === 'acoso_prof').pop().cos, 'Tipo de afectado: Personal → Alumno');
+    add(aFecha('2026-01-07', '12:02'), 'VOC-02', 'Intento de abrir vista', 'Vista general', 'Vista fuera del rol', 'Denegado');
+    add(aFecha('2026-03-24', '10:50'), 'VOC-01', 'Intento de abrir vista', 'Recomendaciones', 'Vista fuera del rol', 'Denegado');
+    add(aFecha('2026-06-16', '11:30'), 'COORD-01', 'Intento de abrir vista', 'Bitácora automática', 'Vista fuera del rol', 'Denegado');
+    add(aFecha('2026-04-21', '07:52'), 'VOC-02', 'Inicio de sesión', '—', '5 intentos fallidos; cuenta bloqueada', 'Bloqueado');
+    add(aFecha('2026-05-26', '13:40'), 'VOC-02', 'Sesión expirada', '—', '15 min sin actividad', 'Cerrada');
+    add(aFecha('2026-05-20', '10:20'), 'COORD-01', 'Corrección de reporte', (D.reportes.find(r => r.clave === 'validado') || {}).cos, 'Espacio: Pasillo piso 1 → Pasillo piso 2');
+    add(aFecha('2026-07-30', '09:12'), 'COORD-01', 'Corrección de reporte', D.reportes.filter(r => r.clave === 'acoso_prof').pop().cos, 'Tipo de afectado: Personal → Alumno');
     releerEventos();
     S.eventos.forEach((e, i) => A.push({ i: i + 1, d: new Date(e.d), usuario: e.usuario, rol: USUARIOS[e.usuario] || 'Sistema', accion: e.accion, objeto: e.objeto, detalle: e.detalle, resultado: e.resultado, sesion: true }));
     /* El historial sintético solo llega hasta hoy: nada de la bitácora puede tener fecha futura */
@@ -383,7 +396,7 @@
   const CASO_VALIDADO = (D.reportes.find(r => r.clave === 'validado') || D.reportes[0]).cos;
   window.M = {
     CASO_VALIDADO,
-    sesion, agregarReporte, modificar, evento, preferencia, restablecer, ahora,
+    sesion, mesActual, agregarReporte, sigCOS, sigEXP, sigOficio, modificar, evento, preferencia, restablecer, ahora,
     DATOS: D, REPORTES, TIPOS, GRUPOS, DESC_GRUPO, ZONAS, FASES, DESTINOS, DESTINO_CORTO, AFECTADOS, MODOS, MODOS_TIPO, FRANJAS, DIAS, MESES_DATOS,
     EDIFICIOS, PISOS, ESPACIOS, USUARIOS, ACCION_CORTA,
     filtrar, contar, mayor, metricas, indiceGeneral, indiceGrupo, nivelIndice, serieMensual, proyeccion, mesesEntre,

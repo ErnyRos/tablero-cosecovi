@@ -1,7 +1,7 @@
 /* =====================================================================
    TABLERO COSECOVI ESCOM · CABECERA, PERIODO GLOBAL, ROLES Y PERMISOS
    - Rol: sale del usuario que inició sesión (localStorage); sin sesión se regresa al login
-   - Periodo global: ?desde=2026-01&hasta=2026-12 (mes o rango de meses)
+   - Periodo global: ?desde=2025-11&hasta=2026-11 (mes o rango de meses)
    - Zona global: ?zona=Accesos
    Los parámetros viajan entre pestañas para no perder el filtro (HU-12).
    ===================================================================== */
@@ -94,8 +94,8 @@
       '<div class="grupo" id="g-mes"' + (esMes ? '' : ' hidden') + '><select id="g-unmes" aria-label="Mes">' + opt(estado.hasta) + '</select></div>' +
       '<div class="grupo" id="g-rango"' + (esMes ? ' hidden' : '') + '>Desde <select id="g-desde" aria-label="Desde">' + opt(estado.desde) + '</select> hasta <select id="g-hasta" aria-label="Hasta">' + opt(estado.hasta) + '</select></div>' +
       '<div class="atajos" id="g-atajos">' + [1, 3, 6, 12].map(k => '<button data-k="' + k + '" class="' + ((estado.hasta === ULT && (k === n || (k === 12 && n === MESES.length))) ? 'on' : '') + '">' + k + (k === 1 ? ' mes' : '') + '</button>').join('') + '</div>' +
-      '<span class="et" style="margin-left:8px">ZONA</span><select id="g-zona" aria-label="Zona"><option value="">Todas las zonas</option>' + M.ZONAS.map(z => '<option' + (z === estado.zona ? ' selected' : '') + '>' + z + '</option>').join('') + '</select>' +
-      '<span class="actual"><span class="punto-verde"></span>Actualizado: ' + M.u.fmtFH(new Date()) + '</span>' +
+      '<span class="et g-zona-w" style="margin-left:8px">ZONA</span><select class="g-zona-w" id="g-zona" aria-label="Zona"><option value="">Todas las zonas</option>' + M.ZONAS.map(z => '<option' + (z === estado.zona ? ' selected' : '') + '>' + z + '</option>').join('') + '</select>' +
+      '<span class="actual"><span class="punto-verde"></span>Actualizado ' + M.u.fmtFC(new Date()) + ', ' + M.u.hhmm(new Date()) + '</span>' +
       '</div>';
   }
   function cambiarPeriodo(desde, hasta, zona) {
@@ -115,7 +115,7 @@
     $('g-zona').onchange = e => cambiarPeriodo(estado.desde, estado.hasta, e.target.value);
     $('g-atajos').querySelectorAll('button').forEach(b => b.onclick = () => {
       const k = +b.dataset.k, i = MESES.length - k;
-      if (i < 0) aviso('Hay datos desde enero de 2026.');
+      if (i < 0) aviso('Hay datos desde ' + M.u.nombreMes(MESES[0]).toLowerCase() + '.');
       cambiarPeriodo(MESES[Math.max(0, i)], ULT);
     });
   }
@@ -162,6 +162,7 @@
   const limpio = t => (t || '').replace(/\s+/g, ' ').trim().slice(0, 70);
   function etiquetaCampo(el) {
     if (el.getAttribute('aria-label')) return el.getAttribute('aria-label');
+    if (el.type === 'radio') { const c = el.closest('.campo'), l = c && c.querySelector(':scope > label'); if (l) return limpio(l.textContent.replace('Dato cifrado', '').replace('*', '')); }
     const c = el.closest('.campo'), l = (el.labels && el.labels[0]) || (c && c.querySelector('label'));
     return limpio(l ? l.textContent.replace('Dato cifrado', '') : el.id || el.name || el.type);
   }
@@ -170,7 +171,7 @@
       if (e.target.matches('input')) return;
       const el = e.target.closest('button, a, tr.clic, .pt, .barra, label.canal, label.interruptor');
       if (!el || el.matches('input') || el.classList.contains('cab-salir') || el.id === 'restablecer') return;
-      let accion = 'Clic en botón', det = limpio(el.innerText || el.textContent);
+      let accion = 'Clic en botón', det = limpio(el.innerText || el.textContent); if (det === '×') det = 'Cerrar ventana o ficha';
       if (el.classList.contains('cab-tab')) accion = 'Cambio de pestaña';
       else if (el.tagName === 'A') accion = 'Clic en enlace';
       else if (el.matches('tr.clic')) { accion = 'Selección en tabla'; det = el.dataset.id; }
@@ -184,7 +185,7 @@
       const el = e.target; if (!el.matches('select, input, textarea')) return;
       let val = el.tagName === 'SELECT' ? (el.selectedOptions[0] || {}).text : el.type === 'checkbox' ? (el.checked ? 'activado' : 'desactivado') : el.value;
       if (SENSIBLES.includes(el.id)) val = '(valor no registrado por privacidad)';
-      M.evento(ROL.clave, el.closest('.vf') ? 'Cambio de filtro' : el.closest('.periodo') ? 'Cambio de periodo o zona' : 'Captura de campo', nombreVista, etiquetaCampo(el) + ': ' + (val === '' ? 'vacío / todos' : limpio(val)));
+      M.evento(ROL.clave, el.closest('.vf') ? 'Cambio de filtro' : el.closest('.est-f') ? 'Cambio de filtro de gráficas' : el.closest('.periodo') ? 'Cambio de periodo o zona' : 'Captura de campo', nombreVista, etiquetaCampo(el) + ': ' + (val === '' ? 'vacío / todos' : limpio(val)));
     }, true);
     document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[type=text], input:not([type])') && !SENSIBLES.includes(e.target.id) && e.target.value) M.evento(ROL.clave, 'Búsqueda', nombreVista, etiquetaCampo(e.target) + ': ' + limpio(e.target.value)); }, true);
   }
@@ -229,9 +230,13 @@
   let usaPeriodo = true;
   function ajustarBarra() {
     document.getElementById('barra-per').hidden = !usaPeriodo;
+    document.querySelectorAll('.g-zona-w').forEach(x => x.hidden = !usaZona);
     document.querySelector('.periodo').hidden = !usaPeriodo && document.getElementById('vf').hidden;
   }
   function conPeriodo(v) { usaPeriodo = v !== false; ajustarBarra(); }
+  /* Vistas donde la zona no aplica (por ejemplo la bitácora): se oculta el selector */
+  let usaZona = true;
+  function sinZona() { usaZona = false; ajustarBarra(); }
   function filtros(principales, mas, limpiar) {
     const vf = document.getElementById('vf');
     if (!principales && !mas) { vf.hidden = true; vf.innerHTML = ''; ajustarBarra(); return; }
@@ -254,12 +259,61 @@
 
   /* Sección con título (por ejemplo Estadísticas) y rejilla pareja de tarjetas.
      Las tarjetas se reparten en filas de 3 (o de "cols") y la última fila se estira. */
-  function seccion(titulo, sub, tarjetas, cols) {
+  function rejilla(tarjetas, cols) {
     cols = cols || 3;
     const n = tarjetas.length, resto = n % cols, ultFila = resto ? n - resto : n;
     const span = i => 'grid-column:span ' + (i >= ultFila ? 12 / resto : 12 / cols);
-    return '<section class="seccion">' + titSeccion(titulo, sub) +
-      '<div class="rejilla">' + tarjetas.map((t, i) => t.replace(/^<section class="tarjeta/, '<section style="' + span(i) + '" class="tarjeta')).join('') + '</div></section>';
+    return tarjetas.map((t, i) => t.replace(/^<section class="tarjeta/, '<section style="' + span(i) + '" class="tarjeta')).join('');
+  }
+  function seccion(titulo, sub, tarjetas, cols) {
+    return '<section class="seccion">' + titSeccion(titulo, sub) + '<div class="rejilla">' + rejilla(tarjetas, cols) + '</div></section>';
+  }
+
+  /* ---------- Estadísticas con filtros propios ----------
+     Los filtros de esta sección solo afectan a las gráficas. Si la barra superior ya fija la misma
+     dimensión, el filtro de la gráfica la muestra bloqueada para que no se contradigan.
+     campos: claves del catálogo o definiciones propias {k, et, ops, fn}. */
+  const CAT_EST = {
+    ambito: { et: 'Ámbito', ops: ['Interno', 'Externo'] },
+    afectado: { et: 'Tipo de afectado', ops: M.AFECTADOS },
+    semaforo: { et: 'Semáforo', ops: ['Rojo', 'Amarillo'] },
+    nivel: { et: 'Nivel de riesgo', ops: ['Alto', 'Medio'] },
+    fase: { et: 'Fase', ops: M.FASES },
+    atencion: { et: 'Tipo de atención', ops: ['Inmediata', 'Programada'], fn: (r, v) => r.at[0] === v },
+    zona: { et: 'Macro-zona', ops: M.ZONAS }
+  };
+  const periodoTexto = () => M.u.nombrePeriodo(estado.desde, estado.hasta) + (estado.zona && usaZona ? ' · ' + estado.zona : '');
+  function estadisticas(cont, opc) {
+    const campos = opc.campos.map(c => typeof c === 'string' ? Object.assign({ k: c }, CAT_EST[c]) : c), vinc = opc.vinculo || {};
+    const id = k => 'e-' + k;
+    cont.innerHTML = '<section class="seccion est">' + titSeccion('Estadísticas', opc.sub || '') +
+      '<div class="est-f"><span class="et">FILTRAR GRÁFICAS</span>' + campos.map(c => fSelect(id(c.k), c.et, c.ops, '', 'Todos')).join('') +
+      '<button type="button" class="btn-vf liso" data-limpiar-est>Limpiar</button></div>' +
+      '<p class="est-base"></p><div class="rejilla"></div></section>';
+    const caja = cont.querySelector('.seccion');
+    const sel = k => caja.querySelector('#' + id(k));
+    campos.forEach(c => sel(c.k).onchange = () => opc.alCambiar());
+    caja.querySelector('[data-limpiar-est]').onclick = () => { campos.forEach(c => { if (!sel(c.k).disabled) sel(c.k).value = ''; }); opc.alCambiar(); };
+    /* Bloquea la dimensión que ya fija la barra superior */
+    function sincronizar() {
+      campos.forEach(c => {
+        const b = vinc[c.k] && document.getElementById(vinc[c.k]), s = sel(c.k), v = b ? b.value : '';
+        if (v) { s.value = v; s.disabled = true; s.title = 'Fijado en la barra superior'; }
+        else if (s.disabled) { s.disabled = false; s.value = ''; s.title = ''; }
+      });
+    }
+    const activos = () => campos.filter(c => sel(c.k).value && !sel(c.k).disabled);
+    return {
+      filtrar(lista) { sincronizar(); const a = activos(); return lista.filter(r => a.every(c => (c.fn ? c.fn(r, sel(c.k).value) : r[c.k] === sel(c.k).value))); },
+      pintar(tarjetas, n, unidad, cols) {
+        const barra = [...document.querySelectorAll('#vf select, #vf input')].filter(x => x.type === 'checkbox' ? x.checked : x.value)
+          .map(x => x.type === 'checkbox' ? etiquetaCampo(x) : etiquetaCampo(x) + ': ' + (x.tagName === 'SELECT' ? x.selectedOptions[0].text : x.value));
+        const propios = activos().map(c => c.et + ': ' + sel(c.k).selectedOptions[0].text);
+        caja.querySelector('.est-base').innerHTML = ICON.grafica + '<span>Las gráficas muestran <b>' + n + ' ' + (unidad || 'incidentes') + '</b> · ' + (opc.periodo === false ? '' : periodoTexto() + (estado.zona || !usaZona ? '' : ' · todas las zonas') + ' · ') +
+          (barra.length ? 'filtros de la barra: ' + barra.join(', ') : 'sin filtros en la barra') + (propios.length ? ' · solo en gráficas: <b>' + propios.join(', ') + '</b>' : '') + '.</span>';
+        caja.querySelector('.rejilla').innerHTML = rejilla(tarjetas, cols);
+      }
+    };
   }
   const titSeccion = (titulo, sub, der) => '<div class="sec-tit"><div><h2>' + titulo + '</h2>' + (sub ? '<p>' + sub + '</p>' : '') + '</div>' + (der || '') + '</div>';
 
@@ -275,7 +329,7 @@
   window.UI = {
     enlace, ir,
     ICON, ROL, rol: estado.rol, cabecera, encabezado, restringida, filtroGlobal, alCambiarPeriodo: f => oyentes.push(f), aviso,
-    chipFase, chipNivel, claseFase, icSem, sem, kpi, panelTit, opts, tarjetaG, modal, paginar, filtros, conPeriodo, fCampo, fSelect, seccion, titSeccion,
-    periodoTexto: () => M.u.nombrePeriodo(estado.desde, estado.hasta) + (estado.zona ? ' · ' + estado.zona : '')
+    chipFase, chipNivel, claseFase, icSem, sem, kpi, panelTit, opts, tarjetaG, modal, paginar, filtros, conPeriodo, sinZona, fCampo, fSelect, seccion, titSeccion, rejilla, estadisticas,
+    periodoTexto
   };
 })();

@@ -14,10 +14,11 @@
 </head>
 <body>
 <div class="pagina"></div>
-<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script>
+<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script><script src="../graficas.js"></script>
 <script>
 (function () {
   if (!UI.cabecera('auditoria')) return;
+  UI.sinZona();
   const I = UI.ICON, u = M.u, POR = 14;
   /* Tipos de acción para filtrar el rastreo */
   const TIPOS = {
@@ -33,7 +34,7 @@
   let pag = 1;
 
   UI.filtros(
-    UI.fCampo('fecha', 'Fecha', '<input type="date" id="fecha" min="2026-01-01" max="' + u.iso(new Date()) + '">') +
+    UI.fCampo('fecha', 'Fecha', '<input type="date" id="fecha" min="' + M.MESES_DATOS[0] + '-01" max="' + u.iso(new Date()) + '">') +
     UI.fSelect('tipo', 'Tipo de acción', Object.keys(TIPOS), '', 'Todas').replace('class="campo"', 'class="campo ancho"') +
     UI.fSelect('usuario', 'Usuario', Object.keys(M.USUARIOS).map(k => [k, k + ' · ' + M.USUARIOS[k]]), '', 'Todos').replace('class="campo"', 'class="campo ancho"') +
     '<label class="interruptor">Solo esta sesión del prototipo<input type="checkbox" id="solo"><i></i></label>' +
@@ -48,7 +49,8 @@
     '<div class="pie-tabla"><span id="vconteo"></span><div class="paginas"><button id="vmas">Ver más</button></div></div></section>' +
     '<section>' + UI.titSeccion('Registro completo', 'Eventos del periodo <b id="per"></b> con los filtros de la barra superior.') +
     '<section class="tarjeta"><div class="t-env"><table class="t"><thead><tr><th style="width:120px">Fecha y hora</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Objeto</th><th>Detalle (valor anterior → nuevo)</th><th>Resultado</th></tr></thead><tbody id="cuerpo"></tbody></table></div>' +
-      '<div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div></section></section>';
+      '<div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div></section></section>' +
+    '<div id="estad"></div>';
 
   const $ = id => document.getElementById(id);
   const chip = r => '<span class="chip ' + (r === 'Correcto' ? 'r-ok' : (r === 'Denegado' || r === 'Bloqueado' || r === 'Rechazado') ? 'r-mal' : 'r-neutro') + '">' + r + '</span>';
@@ -62,6 +64,7 @@
       UI.kpi('ruta', 'morado', 'Altas y cambios en reportes', L.filter(e => /Alta de reporte|Cambio de fase|Corrección|Registro de|Liga a/.test(e.accion)).length, 'Con valor anterior y nuevo') +
       UI.kpi('descarga', '', 'Exportaciones', L.filter(e => e.accion === 'Exportación').length, 'Reporte mensual') +
       UI.kpi('grafica', 'azul', 'Clics, filtros y navegación', L.filter(e => TIPOS['Navegación'](e) || TIPOS['Clics en botones y elementos'](e) || TIPOS['Filtros, búsquedas y campos'](e)).length, 'Rastreo detallado de uso');
+    ultimaL = L; pintarEst();
     const n = L.length; pag = Math.min(pag, Math.max(1, Math.ceil(n / POR)));
     $('cuerpo').innerHTML = L.slice((pag - 1) * POR, pag * POR).map(e => '<tr><td>' + u.fmtF(e.d) + '<br><span style="color:var(--texto-2)">' + u.hhmm(e.d) + '</span></td><td style="white-space:nowrap"><b>' + e.usuario + '</b></td><td>' + e.rol + '</td><td>' + e.accion + '</td>' +
       '<td>' + (/^(COS|EXP)-/.test(e.objeto) && UI.enlace('inspeccion', { caso: e.objeto }) ? '<a class="obj" href="' + UI.enlace('inspeccion', { caso: e.objeto }) + '">' + e.objeto + '</a>' : '<span class="obj">' + e.objeto + '</span>') + (e.sesion ? ' <span class="chip np r-neutro">Esta sesión</span>' : '') + '</td><td class="det">' + e.detalle.replace(' → ', ' <span class="fl">→</span> ') + '</td><td>' + chip(e.resultado) + '</td></tr>').join('') ||
@@ -71,6 +74,28 @@
     if (tot > 12) { $('pags').innerHTML = '<button ' + (pag === 1 ? 'disabled' : '') + ' id="ant">‹ Anterior</button><button class="on">' + pag + ' / ' + tot + '</button><button ' + (pag === tot ? 'disabled' : '') + ' id="sig">Siguiente ›</button>'; $('ant').onclick = () => { pag--; pintar(); }; $('sig').onclick = () => { pag++; pintar(); }; }
     else UI.paginar($('pags'), n, POR, pag, p => { pag = p; pintar(); });
   }
+  /* Estadísticas de uso: se calculan con los eventos que dejan los filtros de la barra */
+  let ultimaL = [];
+  const RES = ['Correcto', 'Denegado', 'Bloqueado', 'Rechazado', 'Advertencia', 'Cerrada'];
+  const EST = UI.estadisticas($('estad'), { sub: 'Qué se hace en el tablero, quién lo hace, cuándo y con qué resultado.',
+    campos: [{ k: 'rol', et: 'Rol', ops: ['Presidente', 'Coordinador', 'Vocal de apoyo', 'Sistema'] }, { k: 'resultado', et: 'Resultado', ops: RES }],
+    alCambiar: () => pintarEst() });
+  function pintarEst() {
+    const L = EST.filtrar(ultimaL), g = UI.filtroGlobal();
+    const porTipo = Object.keys(TIPOS).map(t => ({ et: t, v: L.filter(TIPOS[t]).length }));
+    const meses = M.mesesEntre(g.desde, g.hasta).map(m => ({ mes: m, n: L.filter(e => u.iso(e.d).slice(0, 7) === m).length }));
+    const franjas = M.FRANJAS.map((fr, i) => ({ et: fr.slice(0, 2), v: L.filter(e => Math.floor(e.d.getHours() / 3) === i).length }));
+    const objetos = G.top(L.filter(e => e.objeto !== '—' && !/^(COS|EXP)-/.test(e.objeto)), e => e.objeto, 6);
+    EST.pintar([
+      UI.tarjetaG('ACTIVIDAD', 'Eventos por tipo de acción', G.barras(porTipo, G.COL.guinda, 170)),
+      UI.tarjetaG('QUIÉN', 'Eventos por usuario', G.barras(G.top(L, e => e.usuario, 6), G.COL.guinda2, 90)),
+      UI.tarjetaG('RESULTADO', 'Resultado de las acciones', G.dona(G.partes(L, e => e.resultado, RES, ['#1f7a4d', '#c62f3a', '#8a1d26', '#e9b300', '#d38aa6', '#8a929c']), 'eventos')),
+      UI.tarjetaG('TENDENCIA', 'Eventos por mes', G.linea(meses, { W: 380, H: 180 })),
+      UI.tarjetaG('CUÁNDO', 'Eventos por hora del día', G.columnas(franjas)),
+      UI.tarjetaG('DÓNDE', 'Vistas y objetos con más actividad', G.barras(objetos, G.COL.atencion, 170))
+    ], L.length, 'eventos');
+  }
+
   const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fh = d => d.getDate() + ' ' + MES[d.getMonth()] + ' ' + d.getFullYear() + '<br><span style="color:var(--texto-2)">' + [d.getHours(), d.getMinutes(), d.getSeconds()].map(u.dos).join(':') + '</span>';
   let vlim = 12;

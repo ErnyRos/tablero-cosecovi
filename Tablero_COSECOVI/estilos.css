@@ -319,3 +319,22 @@ details.clave-d ul { margin: 0; padding-left: 24px; color: var(--texto-2); } det
   .pie { flex-direction: column; gap: 4px; }
   .t-env { max-width: 100%; }
 }
+
+/* ---------- Estadísticas: filtros propios y base ---------- */
+.est-f { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; background: #fff; border: 1px solid #ebe6e8; border-radius: var(--radio); padding: 10px 16px 12px; margin-bottom: 10px; }
+.est-f > .et { font-size: 10.5px; font-weight: 800; letter-spacing: .6px; color: var(--guinda); padding-bottom: 9px; }
+.est-f .campo { margin: 0; min-width: 150px; }
+.est-f .campo label { font-size: 11px; font-weight: 700; color: var(--texto-2); margin-bottom: 3px; }
+.est-f .campo select { padding: 7px 9px; font-size: 12.5px; }
+.est-f .campo select:disabled { background: var(--guinda-claro); color: var(--guinda); font-weight: 700; opacity: 1; cursor: not-allowed; }
+.est-f .btn-vf { margin-left: auto; }
+.est-base { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; font-size: 12.5px; color: var(--texto-2); }
+.est-base svg { width: 15px; height: 15px; flex: none; color: var(--guinda); margin-top: 1px; }
+.tit .base { display: block; font-size: 11.5px; color: var(--texto-2); margin-top: 3px; }
+@media (max-width: 900px) { .est-f .campo { min-width: 0; flex: 1 1 140px; } .est-f .btn-vf { margin-left: 0; } }
+
+.paginas { flex-wrap: wrap; } .pie-tabla { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .vf-in > .et, .est-f > .et { flex-basis: 100%; padding-bottom: 0; }
+  .vf-prin { flex-basis: 100%; }
+}

@@ -5,8 +5,7 @@
 <title>Recomendaciones · Tablero COSECOVI</title>
 <link rel="stylesheet" href="../estilos.css">
 <style>
-  .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 900px) { .tarjetas, .enfoques { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .enfoques { grid-template-columns: 1fr; } }
   .rec { border-top: 3px solid var(--rojo-solido); overflow: hidden; }
   .rec.amar { border-top-color: var(--amarillo-solido); }
   .rec-cab { background: #fdf4f5; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
@@ -35,16 +34,45 @@
   .sustenta b { color: var(--guinda); }
   .prio { margin-left: 8px; }
   .mini { font-size: 11.5px; color: var(--texto-2); }
+  .rec-md { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 18px; align-items: start; }
+  .rec-lista { padding: 6px; display: grid; gap: 4px; position: sticky; top: 14px; }
+  .rec-it { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 4px 10px; align-items: start; text-align: left; border: 1px solid transparent; border-left: 4px solid var(--rojo-solido); background: #fff; border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+  .rec-it.amar { border-left-color: var(--amarillo-solido); }
+  .rec-it:hover { background: #fbf7f9; }
+  .rec-it.on { background: var(--guinda-claro); border-color: var(--rosa-borde); border-left-color: var(--guinda); }
+  .rec-it .rec-n { width: 24px; height: 24px; border-radius: 50%; background: #f1edef; color: var(--guinda); font-weight: 800; display: grid; place-items: center; font-size: 12px; grid-row: span 2; }
+  .rec-it.on .rec-n { background: var(--guinda); color: #fff; }
+  .rec-it .rec-txt b { display: block; font-size: 13.5px; }
+  .rec-it .rec-txt span { display: block; font-size: 11.5px; color: var(--texto-2); margin-top: 2px; }
+  .rec-it .chip { grid-column: 2; justify-self: start; margin: 2px 0 0; }
+  .rec-det { border-top: 3px solid var(--rojo-solido); overflow: hidden; }
+  .rec-det.amar { border-top-color: var(--amarillo-solido); }
+  .rec-det .rec-cab { padding: 16px 18px 12px; }
+  .rec-det h3 { margin: 8px 0 2px; font-size: 19px; font-weight: 600; }
+  .rec-det .rec-cab p { margin: 0; font-size: 12.5px; color: var(--texto-2); }
+  .rec-celdas { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); border-top: 1px solid #f0ebed; border-bottom: 1px solid #f0ebed; background: #fbf8f9; }
+  .rec-cel { padding: 10px 14px; border-left: 1px solid #f0ebed; min-width: 0; }
+  .rec-cel:first-child { border-left: none; }
+  .rec-cel small { display: block; font-size: 11px; font-weight: 700; color: var(--texto-2); }
+  .rec-cel b { display: block; font-size: 16px; margin-top: 2px; overflow-wrap: anywhere; }
+  .rec-cel em { display: block; font-style: normal; font-size: 11px; color: var(--texto-2); }
+  .rec-acc { padding: 12px 18px 4px; }
+  .rec-acc h4 { margin: 0 0 4px; font-size: 11px; font-weight: 800; letter-spacing: .6px; color: var(--guinda); }
+  .rec-acc .acc { padding: 9px 0; border-top: 1px solid #f0ebed; }
+  .rec-acc .acc:first-of-type { border-top: none; }
+  .rec-acc .acc i { width: 20px; height: 20px; font-size: 11px; font-weight: 800; }
+  .rec-pie { padding: 12px 18px 16px; border-top: 1px solid #f0ebed; }
+  @media (max-width: 900px) { .rec-md { grid-template-columns: 1fr; } .rec-lista { position: static; } .rec-celdas { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 </style>
 </head>
 <body>
 <div class="pagina"></div>
-<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script>
+<script src="../datos.js"></script><script src="../modelo.js"></script><script src="../cabecera.js"></script><script src="../graficas.js"></script>
 <script>
 (function () {
   if (!UI.cabecera('recomendaciones')) return;
   const I = UI.ICON, u = M.u;
-  let pag = 1;
+  let pag = 1, selRec = null, ultimaL = [];
 
   UI.filtros(
     UI.fSelect('f-grupo', 'Delito', M.REC.map(r => r.titulo), '', 'Todos los delitos').replace('class="campo"', 'class="campo ancho"') +
@@ -55,7 +83,7 @@
     '<div class="nota-info">' + I.alerta + '<div><b>Uso orientativo.</b> Cada acción muestra los casos que la sustentan. La recomendación final debe considerar el contexto y los protocolos aplicables.</div></div>' +
     '<div class="kpis" id="kpis"></div>' +
     '<section>' + UI.titSeccion('Recomendaciones sugeridas', 'Ordenadas por casos abiertos. Las acciones sin casos que las activen en el periodo aparecen en gris como acción base.', '<span class="etiqueta-gris" id="nres"></span>') +
-      '<div class="tarjetas" id="tarjetas"></div></section>' +
+      '<div class="rec-md"><nav class="tarjeta rec-lista" id="rlista" aria-label="Recomendaciones"></nav><section class="tarjeta rec-det" id="rdet"></section></div></section>' +
     '<section class="tarjeta"><div class="tit"><div><small>CASOS QUE SUSTENTAN LAS RECOMENDACIONES</small><h2>Expedientes abiertos y acción sugerida</h2><p>Cada caso sin cerrar se liga a su recomendación según su tipo de delito; la acción sugerida depende de su fase y de si hay reincidencia.</p></div></div>' +
       '<div class="t-env"><table class="t"><thead><tr><th>Caso</th><th>Expediente</th><th>Delito</th><th>Lugar</th><th>Fase</th><th>Recomendación</th><th>Acción sugerida</th></tr></thead><tbody id="casos"></tbody></table></div>' +
       '<div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div></section>' +
@@ -64,7 +92,8 @@
         '<div class="enfoque"><b>Correctivo</b>Se solicita al jefe de cuadrante de la SSC mediante el formato oficial, dejando constancia de la acción y su seguimiento.</div></div>'),
       UI.tarjetaG('ALCANCE DE CAMPAÑA', 'Canales de difusión', '<p class="nota" style="margin:0 0 6px">Selecciona los canales recomendados</p>' +
         '<label class="canal"><input type="checkbox" checked>Pantallas de la escuela</label><label class="canal"><input type="checkbox" checked>Redes oficiales de ESCOM</label><label class="canal"><input type="checkbox">Páginas oficiales en Google</label><p class="nota" id="canales-txt" style="margin-top:8px"></p>')
-    ], 2);
+    ], 2) +
+    '<div id="estad"></div>';
 
   const $ = id => document.getElementById(id);
   const pg = new URLSearchParams(location.search).get('grupo');
@@ -88,14 +117,23 @@
       UI.kpi('enviar', 'morado', 'Canalizaciones sin respuesta', vis.reduce((s, r) => s + r.E.sinRespuesta, 0), 'Requieren seguimiento al oficio') +
       UI.kpi('alerta', '', 'Prioridad principal', top ? '<span style="font-size:15px">' + top.titulo + '</span>' : '—', top ? top.E.abiertos + ' abiertos de ' + top.E.casos + ' casos' : '');
     $('nres').textContent = vis.length + ' recomendaciones';
-    $('tarjetas').innerHTML = vis.map(r => {
-      const rojo = r.sem === 'Rojo', E = r.E;
-      return '<section class="tarjeta rec' + (rojo ? '' : ' amar') + '"><div class="rec-cab"><span class="tag" style="color:' + (rojo ? 'var(--rojo)' : 'var(--amarillo)') + '">' + UI.icSem(r.sem) + (rojo ? 'Riesgo alto · Atención mayor' : 'Riesgo medio · Atención preventiva') + '</span>' + chipPrio(r.prioridad) +
-        '<h3>' + r.titulo + '</h3><p>' + r.sub + '</p>' +
-        '<div class="sustenta"><span>Casos: <b>' + E.casos + '</b></span><span>Expedientes: <b>' + E.expedientes + '</b></span><span>Abiertos: <b>' + E.abiertos + '</b></span><span>Reincidencia: <b>' + E.reincidencia + '</b></span><span>Lugar principal: <b>' + E.lugar[0] + '</b></span></div></div>' +
-        r.acciones.map(a => '<div class="acc' + (a.sustento ? '' : ' base') + '"><i>✓</i><div>' + a.texto + '<small>' + (a.sustento || 'Acción base: sin casos que la activen en el periodo.') + '</small></div></div>').join('') +
-        '<div class="atajos-ir" style="padding:10px 14px;border-top:1px solid var(--borde)">' + r.grupos.map(gr => UI.ir('inspeccion', { grupo: gr }, 'Ver casos de ' + gr.toLowerCase())).join('') + r.grupos.map(gr => UI.ir('delito', { delito: gr }, 'Analizar ' + gr.toLowerCase())).join('') + '</div></section>';
-    }).join('') || '<p class="nota">Sin recomendaciones con estos filtros.</p>';
+    if (!vis.some(r => r.id === selRec)) selRec = vis.length ? vis[0].id : null;
+    $('rlista').innerHTML = vis.map((r, i) => '<button type="button" class="rec-it' + (r.sem === 'Rojo' ? '' : ' amar') + (r.id === selRec ? ' on' : '') + '" data-id="' + r.id + '">' +
+      '<span class="rec-n">' + (i + 1) + '</span><span class="rec-txt"><b>' + r.titulo + '</b><span>' + r.E.abiertos + ' abiertos · ' + r.E.casos + ' casos · ' + r.activas + ' de ' + r.acciones.length + ' acciones con sustento</span></span>' + chipPrio(r.prioridad) + '</button>').join('') ||
+      '<p class="nota" style="padding:14px">Sin recomendaciones con estos filtros.</p>';
+    $('rlista').querySelectorAll('.rec-it').forEach(b => b.onclick = () => { selRec = b.dataset.id; pintar(); if (innerWidth < 900) $('rdet').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    const r = vis.find(x => x.id === selRec);
+    $('rdet').hidden = !r;
+    if (r) {
+      const E = r.E, rojo = r.sem === 'Rojo', cel = (k, v, sub) => '<div class="rec-cel"><small>' + k + '</small><b>' + v + '</b>' + (sub ? '<em>' + sub + '</em>' : '') + '</div>';
+      $('rdet').className = 'tarjeta rec-det' + (rojo ? '' : ' amar');
+      $('rdet').innerHTML = '<div class="rec-cab"><div><span class="tag" style="color:' + (rojo ? 'var(--rojo)' : 'var(--amarillo)') + '">' + UI.icSem(r.sem) + (rojo ? 'Riesgo alto · Atención mayor' : 'Riesgo medio · Atención preventiva') + '</span>' + chipPrio(r.prioridad) +
+        '<h3>' + r.titulo + '</h3><p>' + r.sub + '</p></div></div>' +
+        '<div class="rec-celdas">' + cel('Casos', E.casos, E.expedientes + ' expedientes') + cel('Abiertos', E.abiertos, E.sinRespuesta + ' sin respuesta') + cel('Reincidencia', E.reincidencia, 'expedientes') +
+          cel('Lugar principal', E.lugar[0], E.lugar[1] ? E.lugar[1] + ' casos' : '') + cel('Franja crítica', E.franja[1] ? E.franja[0] + ' h' : '—', E.franja[1] ? E.franja[1] + ' casos' : '') + '</div>' +
+        '<div class="rec-acc"><h4>ACCIONES RECOMENDADAS Y SU SUSTENTO</h4>' + r.acciones.map((a, i) => '<div class="acc' + (a.sustento ? '' : ' base') + '"><i>' + (i + 1) + '</i><div>' + a.texto + '<small>' + (a.sustento || 'Acción base: sin casos que la activen en el periodo.') + '</small></div></div>').join('') + '</div>' +
+        '<div class="atajos-ir rec-pie">' + r.grupos.map(gr => UI.ir('inspeccion', { grupo: gr }, 'Ver casos de ' + gr.toLowerCase())).join('') + r.grupos.map(gr => UI.ir('delito', { delito: gr }, 'Analizar ' + gr.toLowerCase())).join('') + '</div>';
+    }
 
     const porPag = 8, filas = abiertosVis.slice().sort((a, b) => a.fecha < b.fecha ? 1 : -1), total = filas.length;
     pag = Math.min(pag, Math.max(1, Math.ceil(total / porPag)));
@@ -107,7 +145,25 @@
     }).join('') || '<tr><td colspan="7" class="cen" style="padding:20px">Sin casos abiertos con estos filtros.</td></tr>';
     $('conteo').textContent = total ? 'Mostrando ' + ((pag - 1) * porPag + 1) + '–' + Math.min(pag * porPag, total) + ' de ' + total + ' casos abiertos' : '0 casos abiertos';
     UI.paginar($('pags'), total, porPag, pag, p => { pag = p; pintar(); });
+    ultimaL = L; pintarEst();
   }
+  /* Estadísticas del motor: sus filtros solo afectan a las gráficas */
+  const EST = UI.estadisticas($('estad'), { sub: 'Cómo se reparten los casos entre las recomendaciones y qué tanto sustento tiene cada una.',
+    campos: ['fase', 'ambito', 'afectado', 'atencion', 'zona'], vinculo: { zona: 'g-zona' }, alCambiar: () => pintarEst() });
+  function pintarEst() {
+    const L = EST.filtrar(ultimaL), R = M.recomendar(L).filter(r => (!$('f-grupo').value || r.titulo === $('f-grupo').value) && (!$('f-nivel').value || r.sem === $('f-nivel').value));
+    const corto = t => t.replace('Delitos contra la salud / Violencia', 'Salud / Violencia').replace('Robos con o sin violencia', 'Robos');
+    const ab = R.flatMap(r => r.E.abiertosL), casos = R.flatMap(r => r.E.rs);
+    EST.pintar([
+      UI.tarjetaG('PRIORIDAD', 'Casos abiertos por recomendación', G.barras(R.map(r => ({ et: corto(r.titulo), v: r.E.abiertos, color: r.sem === 'Rojo' ? G.COL.rojo : G.COL.amar })), null, 120)),
+      UI.tarjetaG('VOLUMEN', 'Casos por recomendación', G.barras(R.map(r => ({ et: corto(r.titulo), v: r.E.casos })), G.COL.guinda, 120)),
+      UI.tarjetaG('SUSTENTO', 'Acciones con sustento', G.barras(R.map(r => ({ et: corto(r.titulo), v: r.activas })), '#1f7a4d', 120) + '<p class="nota" style="margin-top:8px">' + I.check + 'De 4 acciones por recomendación.</p>'),
+      UI.tarjetaG('FLUJO', 'Casos abiertos por fase', G.dona(G.partes(ab, c => c.fase, ['En atención COSECOVI', 'Canalizado'], [G.COL.atencion, G.COL.canal]), 'abiertos')),
+      UI.tarjetaG('REINCIDENCIA', 'Expedientes con reincidencia', G.barras(R.map(r => ({ et: corto(r.titulo), v: r.E.reincidencia })), G.COL.guinda2, 120)),
+      UI.tarjetaG('DÓNDE', 'Casos abiertos por macro-zona', G.barras(G.conteo(ab, c => c.zona, M.ZONAS), G.COL.guinda, 120))
+    ], casos.length, 'casos ligados a recomendaciones');
+  }
+
   ['f-grupo', 'f-nivel'].forEach(id => $(id).onchange = () => { pag = 1; pintar(); });
   $('limpiar').onclick = () => { $('f-grupo').value = ''; $('f-nivel').value = ''; pag = 1; pintar(); };
   UI.alCambiarPeriodo(() => { pag = 1; pintar(); });

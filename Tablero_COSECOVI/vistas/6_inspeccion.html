@@ -57,7 +57,7 @@
       '<span class="nota" id="ayudaModo"></span></div>' +
     '<div class="kpis" id="kpis" style="margin-top:-8px"></div>' +
     '<div class="rej-i">' +
-      '<div style="display:grid;gap:18px;min-width:0">' +
+      '<div style="display:grid;grid-template-columns:minmax(0,1fr);gap:18px;min-width:0">' +
         '<section class="tarjeta"><div class="t-env"><table class="t" id="tabla"></table></div><div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div>' +
           '<div class="pie-tabla"><span class="nota">' + I.candado + 'Acceso registrado en bitácora · Esta vista no es exportable</span></div></section>' +
         '<section class="tarjeta" id="detExp" hidden></section>' +
@@ -108,10 +108,31 @@
     $('tabla').querySelectorAll('tr.clic').forEach(tr => tr.onclick = e => { const x = e.target.closest('[data-exp]'); seleccionar(x ? x.dataset.exp : tr.dataset.id); });
     pintarDetalleExp();
 
+    ultimaL = L; pintarEst();
+  }
+
+  /* Estadísticas de los casos que cumplen los filtros; sus filtros solo afectan a las gráficas */
+  let ultimaL = [];
+  const EST = UI.estadisticas($('stats'), { sub: 'Seguimiento, tiempos de atención y cierre, reincidencia y canalización de los casos que cumplen los filtros.',
+    campos: ['ambito', 'afectado', 'nivel', 'fase', 'atencion'], vinculo: { ambito: 'f-ambito', afectado: 'f-afectado', nivel: 'f-nivel', fase: 'f-fase', atencion: 'f-atencion' }, alCambiar: () => pintarEst() });
+  function pintarEst() {
+    const L = EST.filtrar(ultimaL), K = M.metricas(L), f = UI.filtroGlobal(), amar = t => ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t);
     const top = M.expedientes(L).sort((a, b) => b.reportes.length - a.reportes.length).slice(0, 5);
-    $('stats').innerHTML = UI.seccion('Estadísticas', 'Seguimiento y reincidencia de los casos que cumplen los filtros.', [UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
+    const h1a = r => r.at[1] / 60, dCierre = r => r.cierre ? Math.round((u.aFecha(r.cierre) - u.aFecha(r.fecha)) / 864e5) : null;
+    EST.pintar([
+UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
         '<p class="nota" style="margin-top:8px">' + I.reloj + 'Primera atención promedio ' + K.primeraAtencionH + ' h · cierre promedio ' + K.cierreDias + ' días</p>'),
-      UI.tarjetaG('REINCIDENCIA', 'Expedientes con más reportes', '<div id="topexp">' + G.barras(top.map(e => ({ et: e.id, v: e.reportes.length })), G.COL.guinda, 110) + '</div><p class="nota" style="margin-top:6px">' + I.carpeta + 'Selecciona un expediente para ver su ruta.</p>')], 2);
+      UI.tarjetaG('REINCIDENCIA', 'Expedientes con más reportes', '<div id="topexp">' + G.barras(top.map(e => ({ et: e.id, v: e.reportes.length })), G.COL.guinda, 110) + '</div><p class="nota" style="margin-top:6px">' + I.carpeta + 'Selecciona un expediente para ver su ruta.</p>'),
+      UI.tarjetaG('FLUJO', 'Casos por fase', G.dona(G.partes(L, r => r.fase, M.FASES, [G.COL.atencion, G.COL.canal, G.COL.cerrado]), 'casos')),
+      UI.tarjetaG('RIESGO', 'Casos por nivel de riesgo', G.dona(G.partes(L, r => r.nivel, ['Alto', 'Medio'], [G.COL.rojo, G.COL.amar]), 'casos')),
+      UI.tarjetaG('ATENCIÓN', 'Tiempo de primera atención', G.barras(G.rangos(L, h1a, [['Menos de 1 h', 0, 1], ['1 a 4 h', 1, 4], ['4 a 24 h', 4, 24], ['Más de 24 h', 24, 1e9]]), G.COL.atencion, 100)),
+      UI.tarjetaG('CIERRE', 'Días hasta el cierre', G.barras(G.rangos(L, dCierre, [['Hasta 7 días', 0, 8], ['8 a 15 días', 8, 16], ['16 a 30 días', 16, 31], ['Más de 30 días', 31, 1e9]]), G.COL.cerrado, 100) +
+        '<p class="nota" style="margin-top:8px">' + I.check + K.cerrado + ' cerrados · ' + (K.total - K.cerrado) + ' abiertos</p>'),
+      UI.tarjetaG('TENDENCIA', 'Casos por mes', G.linea(M.serieMensual(L, f.desde, f.hasta), { W: 380, H: 180 })),
+      UI.tarjetaG('CANALIZACIÓN', 'Por destino', G.barras([{ et: 'Dirección General', v: K.porDestino.DG }, { et: 'Consejo Técnico', v: K.porDestino.CT }, { et: 'SSC', v: K.porDestino.SSC }], G.COL.canal, 110) +
+        '<p class="nota" style="margin-top:8px">' + I.enviar + K.canalizados + ' casos canalizados por oficio.</p>'),
+      UI.tarjetaG('DELITOS', 'Casos por tipo de incidente', G.barras(M.TIPOS.map(t => ({ et: M.corto(t), v: L.filter(r => r.tipo === t).length, color: amar(t) ? G.COL.amar : G.COL.rojo })), null, 130))
+    ], L.length, 'casos');
     $('topexp').querySelectorAll('.barra').forEach((b, i) => { b.style.cursor = 'pointer'; b.onclick = () => seleccionar(top[i].id); });
   }
 
@@ -164,7 +185,7 @@
   }
 
   function modalCanal(r) {
-    const sig = 'OF-COSECOVI-2026-' + String(Math.max(...M.REPORTES.filter(x => x.canal).map(x => +x.canal[1].slice(-3))) + 1).padStart(3, '0');
+    const sig = M.sigOficio();
     const v = UI.modal('Registrar canalización · ' + r.cos,
       '<div class="campo"><label>Destino <span class="req">*</span></label><select id="m-dest">' + UI.opts(Object.keys(M.DESTINOS).map(k => [k, M.DESTINOS[k]]), 'DG') + '</select></div>' +
       '<div class="dos-campos"><div class="campo"><label>Fecha</label><input type="date" id="m-fecha" value="' + u.iso(new Date()) + '"></div><div class="campo"><label>Número de oficio</label><input id="m-of" value="' + sig + '"></div></div>' +

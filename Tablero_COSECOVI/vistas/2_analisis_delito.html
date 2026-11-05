@@ -14,7 +14,7 @@
   .mapa-c { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 18px; padding: 0 18px 18px; align-items: start; }
   .ctx { background: #fbf8f9; border-radius: 10px; padding: 12px 14px; }
   .ctx .factor:first-of-type { border-top: none; }
-  @media (max-width: 900px) { .mapa-c { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .mapa-c { grid-template-columns: 1fr; } .cab-delito { flex-wrap: wrap; } .cab-delito .atajos-ir { margin-left: 0 !important; flex-direction: row !important; align-items: flex-start !important; flex-wrap: wrap; } }
   .factor { display: flex; gap: 8px; padding: 9px 0; border-top: 1px solid var(--borde); font-size: 12px; }
   .factor svg { width: 15px; height: 15px; color: var(--guinda); flex: none; margin-top: 1px; }
   .factor b { display: block; font-size: 12.5px; }
@@ -76,20 +76,6 @@
     const res = MAPA.plano($('mapa'), L, { modo: 'puntos', etiquetas: true, alSeleccionar: id => { const rs = L.filter(r => r.lug === id), h = UI.enlace('inspeccion', { lugar: id, grupo: g, caso: rs.length ? rs[rs.length - 1].cos : '' }); if (h) location.href = h; } });
     $('npuntos').textContent = res.lugares + ' puntos · ' + K.total + ' incidentes';
 
-    const serie = M.serieMensual(L, base.desde, base.hasta), proy = M.proyeccion(serie, 3);
-    const ult = serie.slice(-3), mh = ult.reduce((s, x) => s + x.n, 0) / (ult.length || 1), mp = proy.reduce((s, x) => s + x.n, 0) / (proy.length || 1);
-    const cambio = mh ? Math.round((mp - mh) / mh * 100) : 0;
-    const hHist = '<section class="tarjeta"><div class="tit"><div><small>HISTÓRICO Y ESTIMACIÓN</small><h2>Tendencia temporal</h2></div>' +
-      (proy.length ? '<span class="cambio' + (cambio < 0 ? ' baja' : '') + '">' + (cambio >= 0 ? '↗ Sube ' : '↘ Baja ') + Math.abs(cambio) + ' %</span>' : '') + '</div>' +
-      '<div class="cuerpo">' + (serie.length > 1 ? G.linea(serie, { proy, W: 420, H: 170 }) : '<p class="nota">Elige un rango de meses para ver la tendencia y la proyección.</p>') + '</div></section>';
-
-    const porDia = M.DIAS.map((d, i) => ({ et: d, v: L.filter(r => M.u.diaDe(r.fecha) === i).length }));
-    const porHora = M.FRANJAS.map(fr => ({ et: fr.slice(0, 2), v: K.franjas[fr] }));
-    const items = patron === 'dia' ? porDia : porHora, top = items.reduce((a, b) => b.v > a.v ? b : a, items[0]);
-    const hPatron = '<section class="tarjeta"><div class="tit"><div><small>PATRÓN DE OCURRENCIA</small><h2>Distribución por ' + (patron === 'dia' ? 'día' : 'hora') + '</h2></div></div><div class="cuerpo">' +
-      '<div class="seg" id="seg-p" style="display:flex"><button data-p="dia" class="' + (patron === 'dia' ? 'on' : '') + '" style="flex:1">Día de la semana</button><button data-p="hora" class="' + (patron === 'hora' ? 'on' : '') + '" style="flex:1">Hora del día</button></div>' +
-      G.columnas(items) + '<div class="destacado">' + I.reloj + (patron === 'dia' ? ({ Lun: 'Lunes', Mar: 'Martes', 'Mié': 'Miércoles', Jue: 'Jueves', Vie: 'Viernes', 'Sáb': 'Sábado', Dom: 'Domingo' })[top.et] : 'Franja ' + top.et + ' h') + ': ' + top.v + ' incidentes</div></div></section>';
-
     const filas = Object.keys(M.contar(L, r => r.lug)).map(lug => {
       const rs = L.filter(r => r.lug === lug), fases = M.contar(rs, r => r.fase);
       return { lug, rs, n: rs.length, fases };
@@ -102,18 +88,52 @@
         '<td>' + Object.keys(f.fases).map(k => f.fases[k] + ' ' + ({ 'En atención COSECOVI': 'en atención', 'Canalizado': f.fases[k] > 1 ? 'canalizados' : 'canalizado', 'Cerrado': f.fases[k] > 1 ? 'cerrados' : 'cerrado' })[k]).join('<br>') + '</td><td>' + acc + '</td><td>' + UI.ir('inspeccion', { lugar: f.lug, grupo: g }, 'Casos') + '</td></tr>';
     }).join('') || '<tr><td colspan="8" class="cen" style="padding:20px">Sin incidentes con estos filtros.</td></tr>';
 
-    const comp = M.TIPOS.map(t => ({ et: M.corto(t), v: todos.filter(r => r.tipo === t).length, icono: UI.icSem(['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'Amarillo' : 'Rojo'),
-      color: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? G.COL.amar : G.COL.rojo, on: M.GRUPOS[g].includes(t) }));
-    const modos = [...new Set(M.GRUPOS[g].flatMap(t => M.MODOS_TIPO[t]))].map(m => ({ et: m, v: L.filter(r => r.modo === m).length })).filter(x => x.v || x.et !== 'Otro').sort((a, b) => b.v - a.v);
-    const hModos = '<section class="tarjeta"><div class="tit"><div><small>CÓMO OCURRE</small><h2>Modalidad del delito seleccionado</h2><p>Según el bloque Cómo del formulario de captura.</p></div></div><div class="cuerpo">' + G.barras(modos, G.COL.guinda, 190) + '</div></section>';
-    const hComp = '<section class="tarjeta"><div class="tit"><div><small>COMPARATIVO</small><h2>Incidentes por tipo de delito y semáforo</h2><p>El delito seleccionado aparece en negritas.</p></div></div><div class="cuerpo">' + G.barras(comp, null, 160) + '</div></section>';
-    $('estad').innerHTML = UI.seccion('Estadísticas', 'Cómo se comporta el delito seleccionado en el tiempo y frente a los demás.', [hHist, hPatron, hModos, hComp], 2);
-    $('seg-p').querySelectorAll('button').forEach(b => b.onclick = () => { patron = b.dataset.p; pintar(); });
+    ctx = { L, todos, g, base }; pintarEst();
 
     $('contexto').innerHTML = '<h4 style="margin:0;font-size:11px;font-weight:800;color:var(--guinda);letter-spacing:.6px">CONTEXTO</h4><p style="margin:2px 0 6px;font-size:13px;font-weight:600">Factores que influyen en el riesgo</p>' +
       '<div class="factor">' + I.reloj + '<div><b>Horario</b><span>' + (K.total ? 'La franja ' + K.franjaCritica + ' concentra ' + K.franjaCriticaN + ' de ' + K.total + ' reportes.' : 'Sin datos.') + '</span></div></div>' +
       '<div class="factor">' + I.mapa + '<div><b>Zona</b><span>' + (topL.length ? topL[0] + ' concentra ' + lugares[topL[0]] + ' casos.' : 'Sin datos.') + '</span></div></div>' +
       '<div class="factor">' + I.alerta + '<div><b>Tipo de delito</b><span>' + (rojo ? 'Pertenece al grupo de atención mayor y requiere atención prioritaria.' : 'Pertenece al grupo de atención amarilla: prevención y seguimiento.') + '</span></div></div>';
+  }
+  /* Estadísticas del delito seleccionado: sus filtros solo afectan a las gráficas */
+  let ctx = null;
+  const EST = UI.estadisticas($('estad'), { sub: 'Cómo se comporta el delito seleccionado en el tiempo, dónde ocurre, a quién afecta y cómo se atiende.',
+    campos: ['ambito', 'afectado', 'fase', 'atencion', 'zona'], vinculo: { ambito: 'f-amb', afectado: 'f-afe', fase: 'f-fase', zona: 'g-zona' }, alCambiar: () => pintarEst() });
+  function pintarEst() {
+    const L = EST.filtrar(ctx.L), todos = EST.filtrar(ctx.todos), g = ctx.g, base = ctx.base, K = M.metricas(L);
+    const serie = M.serieMensual(L, base.desde, base.hasta), proy = M.proyeccion(serie, 3);
+    const ult = serie.filter(x => x.mes !== M.mesActual()).slice(-3), mh = ult.reduce((s, x) => s + x.n, 0) / (ult.length || 1), mp = proy.reduce((s, x) => s + x.n, 0) / (proy.length || 1);
+    const cambio = mh ? Math.round((mp - mh) / mh * 100) : 0;
+    const hHist = '<section class="tarjeta"><div class="tit"><div><small>HISTÓRICO Y ESTIMACIÓN</small><h2>Tendencia temporal</h2><p>La proyección usa meses completos; el mes en curso va parcial.</p></div>' +
+      (proy.length ? '<span class="cambio' + (cambio < 0 ? ' baja' : '') + '">' + (cambio >= 0 ? '↗ Sube ' : '↘ Baja ') + Math.abs(cambio) + ' %</span>' : '') + '</div>' +
+      '<div class="cuerpo">' + (serie.length > 1 ? G.linea(serie, { proy, W: 420, H: 170 }) : '<p class="nota">Elige un rango de meses para ver la tendencia y la proyección.</p>') + '</div></section>';
+
+    const porDia = M.DIAS.map((d, i) => ({ et: d, v: L.filter(r => M.u.diaDe(r.fecha) === i).length }));
+    const porHora = M.FRANJAS.map(fr => ({ et: fr.slice(0, 2), v: K.franjas[fr] }));
+    const items = patron === 'dia' ? porDia : porHora, top = items.reduce((a, b) => b.v > a.v ? b : a, items[0]);
+    const hPatron = '<section class="tarjeta"><div class="tit"><div><small>PATRÓN DE OCURRENCIA</small><h2>Distribución por ' + (patron === 'dia' ? 'día' : 'hora') + '</h2></div></div><div class="cuerpo">' +
+      '<div class="seg" id="seg-p" style="display:flex"><button data-p="dia" class="' + (patron === 'dia' ? 'on' : '') + '" style="flex:1">Día de la semana</button><button data-p="hora" class="' + (patron === 'hora' ? 'on' : '') + '" style="flex:1">Hora del día</button></div>' +
+      G.columnas(items) + '<div class="destacado">' + I.reloj + (patron === 'dia' ? ({ Lun: 'Lunes', Mar: 'Martes', 'Mié': 'Miércoles', Jue: 'Jueves', Vie: 'Viernes', 'Sáb': 'Sábado', Dom: 'Domingo' })[top.et] : 'Franja ' + top.et + ' h') + ': ' + top.v + ' incidentes</div></div></section>';
+
+    const comp = M.TIPOS.map(t => ({ et: M.corto(t), v: todos.filter(r => r.tipo === t).length, icono: UI.icSem(['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'Amarillo' : 'Rojo'),
+      color: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? G.COL.amar : G.COL.rojo, on: M.GRUPOS[g].includes(t) }));
+    const modos = [...new Set(M.GRUPOS[g].flatMap(t => M.MODOS_TIPO[t]))].map(m => ({ et: m, v: L.filter(r => r.modo === m).length })).filter(x => x.v || x.et !== 'Otro').sort((a, b) => b.v - a.v);
+    const hModos = '<section class="tarjeta"><div class="tit"><div><small>CÓMO OCURRE</small><h2>Modalidad del delito seleccionado</h2><p>Según el bloque Cómo del formulario de captura.</p></div></div><div class="cuerpo">' + G.barras(modos, G.COL.guinda, 190) + '</div></section>';
+    const hComp = '<section class="tarjeta"><div class="tit"><div><small>COMPARATIVO</small><h2>Incidentes por tipo de delito y semáforo</h2><p>Base: todos los delitos con los mismos filtros; el seleccionado aparece en negritas.</p></div></div><div class="cuerpo">' + G.barras(comp, null, 160) + '</div></section>';
+    
+
+    const h1a = r => r.at[1] / 60, dCierre = r => r.cierre ? Math.round((M.u.aFecha(r.cierre) - M.u.aFecha(r.fecha)) / 864e5) : null;
+    EST.pintar([hHist, hPatron, hModos, hComp,
+      UI.tarjetaG('DÓNDE', 'Por macro-zona', G.barras(G.conteo(L, r => r.zona, M.ZONAS), G.COL.guinda, 120)),
+      UI.tarjetaG('A QUIÉN', 'Por tipo de afectado', G.barras(G.conteo(L, r => r.afectado, M.AFECTADOS), G.COL.guinda, 80)),
+      UI.tarjetaG('ÁMBITO', 'Interno y externo', G.dona(G.partes(L, r => r.ambito, ['Interno', 'Externo']))),
+      UI.tarjetaG('SEGUIMIENTO', 'Incidentes por fase', G.dona(G.partes(L, r => r.fase, M.FASES, [G.COL.atencion, G.COL.canal, G.COL.cerrado]))),
+      UI.tarjetaG('ATENCIÓN', 'Tiempo de primera atención', G.barras(G.rangos(L, h1a, [['Menos de 1 h', 0, 1], ['1 a 4 h', 1, 4], ['4 a 24 h', 4, 24], ['Más de 24 h', 24, 1e9]]), G.COL.atencion, 100) +
+        '<p class="nota" style="margin-top:8px">' + I.reloj + 'Promedio ' + K.primeraAtencionH + ' h · cierre promedio ' + K.cierreDias + ' días</p>'),
+      UI.tarjetaG('CIERRE', 'Días hasta el cierre', G.barras(G.rangos(L, dCierre, [['Hasta 7 días', 0, 8], ['8 a 15 días', 8, 16], ['16 a 30 días', 16, 31], ['Más de 30 días', 31, 1e9]]), G.COL.cerrado, 100) +
+        '<p class="nota" style="margin-top:8px">' + I.check + K.cerrado + ' cerrados de ' + K.total + '</p>')
+    ], L.length, 'incidentes de ' + g.toLowerCase(), 2);
+    $('seg-p').querySelectorAll('button').forEach(b => b.onclick = () => { patron = b.dataset.p; pintarEst(); });
   }
   ['f-grupo', 'f-modo', 'f-amb', 'f-afe', 'f-fase', 'f-hd', 'f-hh'].forEach(id => $(id).onchange = pintar);
   $('limpiar').onclick = () => { ['f-modo', 'f-amb', 'f-afe', 'f-fase', 'f-hd', 'f-hh'].forEach(id => $(id).value = ''); pintar(); };
