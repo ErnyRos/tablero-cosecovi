@@ -89,7 +89,7 @@
     const opt = sel => MESES.map(m => '<option value="' + m + '"' + (m === sel ? ' selected' : '') + '>' + M.u.nombreMes(m) + '</option>').join('');
     const esMes = estado.desde === estado.hasta;
     const n = M.mesesEntre(estado.desde, estado.hasta).length;
-    return '<div class="periodo"><div class="periodo-in">' +
+    return '<div class="periodo-in" id="barra-per">' +
       '<span class="et">PERIODO</span>' +
       '<div class="seg" id="g-modo"><button data-m="mes" class="' + (esMes ? 'on' : '') + '">Mes</button><button data-m="rango" class="' + (esMes ? '' : 'on') + '">Rango de meses</button></div>' +
       '<div class="grupo" id="g-mes"' + (esMes ? '' : ' hidden') + '><select id="g-unmes" aria-label="Mes">' + opt(estado.hasta) + '</select></div>' +
@@ -97,11 +97,11 @@
       '<div class="atajos" id="g-atajos">' + [1, 3, 6, 12].map(k => '<button data-k="' + k + '" class="' + ((estado.hasta === ULT && (k === n || (k === 12 && n === MESES.length))) ? 'on' : '') + '">' + k + (k === 1 ? ' mes' : '') + '</button>').join('') + '</div>' +
       '<span class="et" style="margin-left:8px">ZONA</span><select id="g-zona" aria-label="Zona"><option value="">Todas las zonas</option>' + M.ZONAS.map(z => '<option' + (z === estado.zona ? ' selected' : '') + '>' + z + '</option>').join('') + '</select>' +
       '<span class="actual"><span class="punto-verde"></span>Actualizado: 31 dic 2026</span>' +
-      '</div></div>';
+      '</div>';
   }
   function cambiarPeriodo(desde, hasta, zona) {
     estado.desde = desde; estado.hasta = hasta < desde ? desde : hasta; if (zona !== undefined) estado.zona = zona;
-    const vieja = document.querySelector('.periodo'); vieja.insertAdjacentHTML('afterend', barraPeriodo()); vieja.remove();
+    const vieja = document.getElementById('barra-per'); vieja.insertAdjacentHTML('afterend', barraPeriodo()); vieja.remove();
     enlazarPeriodo(); sincronizar(); oyentes.forEach(f => f(filtroGlobal()));
   }
   function enlazarPeriodo() {
@@ -134,7 +134,8 @@
       '<div class="cab-txt"><small>COSECOVI · ESCOM · IPN</small><strong>Tablero de seguridad</strong></div>' +
       '<div class="cab-der"><div class="cab-rol">' + ICON.usuario + '<b>' + ROL.nombre + '</b> · ' + ROL.clave + '</div>' +
       '<a class="cab-salir" href="../index.html">Cerrar sesión</a></div></div>' +
-      '<nav class="cab-tabs">' + tabs + '</nav></header>' + barraPeriodo());
+      '<nav class="cab-tabs">' + tabs + '</nav></header>' +
+      '<div class="periodo">' + barraPeriodo() + '<div class="vf" id="vf" hidden></div></div>');
     document.body.insertAdjacentHTML('beforeend', '<footer class="pie"><span>Comisión de Seguridad y Contra la Violencia · ESCOM</span><span>Información ficticia para fines de visualización · <a href="#" id="restablecer">Restablecer prototipo</a></span></footer>');
     document.getElementById('restablecer').onclick = e => { e.preventDefault(); M.restablecer(); location.reload(); };
     document.querySelector('.cab-salir').onclick = () => { M.evento(ROL.clave, 'Cierre de sesión', '—', 'Salida voluntaria'); M.sesion(null); };
@@ -184,7 +185,7 @@
       const el = e.target; if (!el.matches('select, input, textarea')) return;
       let val = el.tagName === 'SELECT' ? (el.selectedOptions[0] || {}).text : el.type === 'checkbox' ? (el.checked ? 'activado' : 'desactivado') : el.value;
       if (SENSIBLES.includes(el.id)) val = '(valor no registrado por privacidad)';
-      M.evento(ROL.clave, el.closest('.periodo') ? 'Cambio de periodo o zona' : el.closest('.panel') ? 'Cambio de filtro' : 'Captura de campo', nombreVista, etiquetaCampo(el) + ': ' + (val === '' ? 'vacío / todos' : limpio(val)));
+      M.evento(ROL.clave, el.closest('.vf') ? 'Cambio de filtro' : el.closest('.periodo') ? 'Cambio de periodo o zona' : 'Captura de campo', nombreVista, etiquetaCampo(el) + ': ' + (val === '' ? 'vacío / todos' : limpio(val)));
     }, true);
     document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[type=text], input:not([type])') && !SENSIBLES.includes(e.target.id) && e.target.value) M.evento(ROL.clave, 'Búsqueda', nombreVista, etiquetaCampo(e.target) + ': ' + limpio(e.target.value)); }, true);
   }
@@ -221,6 +222,41 @@
     cont.innerHTML = h; cont.querySelectorAll('button').forEach(b => b.onclick = () => alCambiar(+b.dataset.p));
   }
 
+
+  /* ---------- Filtros de la vista en la misma barra superior ----------
+     principales: siempre visibles · mas: detrás del botón Más filtros.
+     El botón Limpiar conserva el id "limpiar" para que cada vista lo enlace. */
+  function filtros(principales, mas, limpiar) {
+    const vf = document.getElementById('vf');
+    if (!principales && !mas) { vf.hidden = true; vf.innerHTML = ''; return; }
+    vf.hidden = false;
+    vf.innerHTML = '<div class="vf-in"><span class="et">FILTROS</span><div class="vf-prin">' + (principales || '') + '</div>' +
+      '<div class="vf-acc">' + (mas ? '<button type="button" class="btn-vf" id="vf-mas" aria-expanded="false">' + ICON.filtro + 'Más filtros <b id="vf-n" hidden></b></button>' : '') +
+      (limpiar === false ? '' : '<button type="button" class="btn-vf liso" id="limpiar">Limpiar</button>') + '</div></div>' +
+      (mas ? '<div class="vf-mas" id="vf-panel" hidden><div class="vf-mas-in">' + mas + '</div></div>' : '');
+    if (!mas) return;
+    const b = document.getElementById('vf-mas'), pnl = document.getElementById('vf-panel');
+    b.onclick = () => { pnl.hidden = !pnl.hidden; b.setAttribute('aria-expanded', !pnl.hidden); b.classList.toggle('on', !pnl.hidden); };
+    const contar = () => { const n = [...pnl.querySelectorAll('select, input')].filter(x => x.type === 'checkbox' ? x.checked : x.value).length, e = document.getElementById('vf-n'); e.hidden = !n; e.textContent = n; };
+    pnl.addEventListener('change', contar); pnl.addEventListener('input', contar);
+    vf.addEventListener('click', e => { if (e.target.id === 'limpiar') setTimeout(contar, 0); });
+    contar();
+  }
+  /* Campo compacto para la barra de filtros */
+  const fCampo = (id, et, ctrl) => '<div class="campo"><label for="' + id + '">' + et + '</label>' + ctrl + '</div>';
+  const fSelect = (id, et, arr, sel, todos, attr) => fCampo(id, et, '<select id="' + id + '"' + (attr || '') + '>' + opts(arr, sel || '', todos) + '</select>');
+
+  /* Sección con título (por ejemplo Estadísticas) y rejilla pareja de tarjetas.
+     Las tarjetas se reparten en filas de 3 (o de "cols") y la última fila se estira. */
+  function seccion(titulo, sub, tarjetas, cols) {
+    cols = cols || 3;
+    const n = tarjetas.length, resto = n % cols, ultFila = resto ? n - resto : n;
+    const span = i => 'grid-column:span ' + (i >= ultFila ? 12 / resto : 12 / cols);
+    return '<section class="seccion">' + titSeccion(titulo, sub) +
+      '<div class="rejilla">' + tarjetas.map((t, i) => t.replace(/^<section class="tarjeta/, '<section style="' + span(i) + '" class="tarjeta')).join('') + '</div></section>';
+  }
+  const titSeccion = (titulo, sub, der) => '<div class="sec-tit"><div><h2>' + titulo + '</h2>' + (sub ? '<p>' + sub + '</p>' : '') + '</div>' + (der || '') + '</div>';
+
   /* Enlace a otra pestaña conservando periodo, zona y rol; null si el rol no la puede abrir */
   function enlace(vista, extra) {
     if (!ROL.vistas.includes(vista)) return null;
@@ -233,7 +269,7 @@
   window.UI = {
     enlace, ir,
     ICON, ROL, rol: estado.rol, cabecera, encabezado, restringida, filtroGlobal, alCambiarPeriodo: f => oyentes.push(f), aviso,
-    chipFase, chipNivel, claseFase, icSem, sem, kpi, panelTit, opts, tarjetaG, modal, paginar,
+    chipFase, chipNivel, claseFase, icSem, sem, kpi, panelTit, opts, tarjetaG, modal, paginar, filtros, fCampo, fSelect, seccion, titSeccion,
     periodoTexto: () => M.u.nombrePeriodo(estado.desde, estado.hasta) + (estado.zona ? ' · ' + estado.zona : '')
   };
 })();

@@ -8,6 +8,7 @@
   .det { font-size: 12px; color: #463e42; }
   .det .fl { color: var(--guinda); font-weight: 700; }
   .obj { font-weight: 600; color: var(--enlace); white-space: nowrap; }
+  .vf .interruptor { flex-direction: row-reverse; justify-content: flex-end; }
   .aviso-sl { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #faf6f8; border: 1px dashed var(--rosa-borde); font-size: 12px; color: var(--texto-2); }
 </style>
 </head>
@@ -31,22 +32,23 @@
   };
   let pag = 1;
 
+  UI.filtros(
+    UI.fCampo('fecha', 'Fecha', '<input type="date" id="fecha" min="2026-01-01" max="2026-12-31">') +
+    UI.fSelect('tipo', 'Tipo de acción', Object.keys(TIPOS), '', 'Todas').replace('class="campo"', 'class="campo ancho"') +
+    UI.fSelect('usuario', 'Usuario', Object.keys(M.USUARIOS).map(k => [k, k + ' · ' + M.USUARIOS[k]]), '', 'Todos').replace('class="campo"', 'class="campo ancho"') +
+    '<label class="interruptor">Solo esta sesión del prototipo<input type="checkbox" id="solo"><i></i></label>' +
+    '<button type="button" class="btn-vf" id="actualizar">Actualizar registros</button>', '');
+
   document.querySelector('.pagina').innerHTML =
     UI.encabezado('escudo', 'AUDITORÍA DEL SERVIDOR', 'Bitácora automática', 'Registro técnico: inicios de sesión, accesos denegados, altas, cambios con valor anterior y nuevo, consultas, exportaciones y respaldos.', UI.restringida()) +
-    '<div class="kpis" id="kpis" style="margin-bottom:14px"></div>' +
-    '<section class="tarjeta vivo" style="margin-bottom:14px"><div class="tit"><div><small>TIEMPO REAL</small><h2>Actividad reciente en el tablero</h2><p>Lo que hacen los usuarios en este momento, con la fecha y hora reales de este equipo. Se actualiza sola, aunque la acción se haga en otra pestaña.</p></div><span class="chip np r-ok" id="reloj"></span></div>' +
+    '<div class="nota-info">' + I.candado + '<div>Registra todo lo que hace cada usuario: inicios de sesión, vistas abiertas, pestañas, clics en botones y elementos, filtros, búsquedas, capturas, cambios, exportaciones, rechazos y accesos denegados, con fecha y hora. Solo la consulta el presidente. Es de solo inserción: nadie puede editar ni borrar un registro y se conserva de forma permanente.</div></div>' +
+    '<div class="kpis" id="kpis"></div>' +
+    '<section class="tarjeta vivo"><div class="tit"><div><small>TIEMPO REAL</small><h2>Actividad reciente en el tablero</h2><p>Lo que hacen los usuarios en este momento, con la fecha y hora reales de este equipo. Se actualiza sola, aunque la acción se haga en otra pestaña.</p></div><span class="chip np r-ok" id="reloj"></span></div>' +
     '<div class="t-env"><table class="t"><thead><tr><th style="width:150px">Fecha y hora</th><th>Usuario</th><th>Vista u objeto</th><th>Acción</th><th>Detalle</th><th>Resultado</th></tr></thead><tbody id="vivo"></tbody></table></div>' +
     '<div class="pie-tabla"><span id="vconteo"></span><div class="paginas"><button id="vmas">Ver más</button></div></div></section>' +
-    '<div class="rej-l"><aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Filtros') +
-      '<p class="nota" style="margin:-4px 0 10px">Periodo: <b id="per"></b></p>' +
-      '<div class="campo"><label for="fecha">Fecha</label><input type="date" id="fecha" min="2026-01-01" max="2026-12-31"></div>' +
-      '<div class="campo"><label for="tipo">Tipo de acción</label><select id="tipo">' + UI.opts(Object.keys(TIPOS), '', 'Todas') + '</select></div>' +
-      '<label class="interruptor">Solo esta sesión del prototipo<input type="checkbox" id="solo"><i></i></label>' +
-      '<div class="campo"><label for="usuario">Usuario</label><select id="usuario">' + UI.opts(Object.keys(M.USUARIOS).map(k => [k, k + ' · ' + M.USUARIOS[k]]), '', 'Todos') + '</select></div>' +
-      '<button class="btn bloque" id="limpiar">Limpiar filtros</button><button class="btn lleno bloque" id="actualizar" style="margin-top:8px">Actualizar registros</button>' +
-      '<div class="aviso-sl">Registra todo lo que hace cada usuario: inicios de sesión, vistas abiertas, pestañas, clics en botones y elementos, filtros, búsquedas, capturas, cambios, exportaciones, rechazos y accesos denegados, con fecha y hora. Solo la consulta el presidente. Es de solo inserción: nadie puede editar ni borrar un registro y se conserva de forma permanente.</div></aside>' +
+    '<section>' + UI.titSeccion('Registro completo', 'Eventos del periodo <b id="per"></b> con los filtros de la barra superior.') +
     '<section class="tarjeta"><div class="t-env"><table class="t"><thead><tr><th style="width:120px">Fecha y hora</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Objeto</th><th>Detalle (valor anterior → nuevo)</th><th>Resultado</th></tr></thead><tbody id="cuerpo"></tbody></table></div>' +
-      '<div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div></section></div>';
+      '<div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div></section></section>';
 
   const $ = id => document.getElementById(id);
   const chip = r => '<span class="chip ' + (r === 'Correcto' ? 'r-ok' : (r === 'Denegado' || r === 'Bloqueado' || r === 'Rechazado') ? 'r-mal' : 'r-neutro') + '">' + r + '</span>';

@@ -5,7 +5,8 @@
 <title>Recomendaciones · Tablero COSECOVI</title>
 <link rel="stylesheet" href="../estilos.css">
 <style>
-  .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .tarjetas, .enfoques, .zonas-v { grid-template-columns: 1fr; } }
   .rec { border-top: 3px solid var(--rojo-solido); overflow: hidden; }
   .rec.amar { border-top-color: var(--amarillo-solido); }
   .rec-cab { background: #fdf4f5; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
@@ -54,34 +55,29 @@
       acc: ['Aplicar estrategias de prevención y concientización.', 'Realizar campañas sobre consumo de sustancias.', 'Mantener monitoreo en zonas de riesgo.', 'Coordinar acciones con seguridad interna.'] }
   ];
 
+  UI.filtros(
+    UI.fSelect('f-grupo', 'Delito', REC.map(r => r.titulo), '', 'Todos los delitos').replace('class="campo"', 'class="campo ancho"') +
+    UI.fSelect('f-nivel', 'Nivel de riesgo', [['Rojo', 'Riesgo alto'], ['Amarillo', 'Riesgo medio']], '', 'Todos los niveles'), '');
+
   document.querySelector('.pagina').innerHTML =
     UI.encabezado('escudo', 'ACCIONES PREVENTIVAS', 'Motor de recomendaciones', 'Estrategias sugeridas con base en el tipo de delito, el nivel de riesgo y el contexto. Basadas en el Reglamento Interno del IPN y los lineamientos de la COSECOVI.',
       '<a class="btn" href="#violentometro" style="text-decoration:none;background:var(--guinda-claro)">' + I.usuarios + 'Recurso para personal COSECOVI</a>') +
-    '<div class="rej-l">' +
-      '<aside class="tarjeta panel">' + UI.panelTit('PERSONALIZA LA CONSULTA', 'Filtros') +
-        '<div class="campo"><label for="f-grupo">Delito</label><select id="f-grupo">' + UI.opts(REC.map(r => r.titulo), '', 'Todos los delitos') + '</select></div>' +
-        '<div class="campo"><label for="f-nivel">Nivel de riesgo</label><select id="f-nivel">' + UI.opts([['Rojo', 'Riesgo alto'], ['Amarillo', 'Riesgo medio']], '', 'Todos los niveles') + '</select></div>' +
-        '<button class="btn bloque" id="limpiar">Limpiar filtros</button>' +
-        '<div class="clave"><div class="niv">' + I.alerta + 'Uso orientativo</div><p style="margin:0;color:var(--texto-2)">La recomendación final debe considerar el contexto y los protocolos aplicables.</p></div>' +
-      '</aside>' +
-      '<div class="col">' +
-        '<div class="tit" style="padding:0"><div><small>ESTRATEGIAS POR DELITO</small><h2>Recomendaciones sugeridas</h2></div><span class="etiqueta-gris" id="nres"></span></div>' +
-        '<div class="tarjetas" id="tarjetas"></div>' +
-        '<div style="display:grid;grid-template-columns:1.6fr 1fr;gap:14px">' +
-          UI.tarjetaG('CRITERIO DE ACTUACIÓN', 'Enfoque', '<div class="enfoques"><div class="enfoque princ"><b>Preventivo <span class="etiqueta-gris" style="color:var(--guinda)">Principal</span></b>Estrategias de concientización y difusión para reducir factores de riesgo antes de que ocurra un incidente.</div>' +
-            '<div class="enfoque"><b>Correctivo</b>Se solicita al jefe de cuadrante de la SSC mediante el formato oficial, dejando constancia de la acción y su seguimiento.</div></div>') +
-          UI.tarjetaG('ALCANCE DE CAMPAÑA', 'Canales de difusión', '<p class="nota" style="margin:0 0 6px">Selecciona los canales recomendados</p>' +
-            '<label class="canal"><input type="checkbox" checked>Pantallas de la escuela</label><label class="canal"><input type="checkbox" checked>Redes oficiales de ESCOM</label><label class="canal"><input type="checkbox">Páginas oficiales en Google</label><p class="nota" id="canales-txt" style="margin-top:8px"></p>') +
-        '</div>' +
-        '<section class="tarjeta" id="violentometro"><div class="tit"><div><small>RECURSO DE CONSULTA</small><h2>Violentómetro y Acosómetro (Red de Género)</h2><p>Consulta señales concretas para apoyar la prevención, detección y canalización. La gravedad aumenta conforme avanza la escala.</p></div></div>' +
+    '<div class="nota-info">' + I.alerta + '<div><b>Uso orientativo.</b> La recomendación final debe considerar el contexto y los protocolos aplicables.</div></div>' +
+    '<section>' + UI.titSeccion('Recomendaciones sugeridas', 'Estrategias por delito con los incidentes y la zona principal del periodo.', '<span class="etiqueta-gris" id="nres"></span>') +
+      '<div class="tarjetas" id="tarjetas"></div></section>' +
+    UI.seccion('Criterios y difusión', 'Cómo se actúa y por qué canales se difunde la estrategia.', [
+      UI.tarjetaG('CRITERIO DE ACTUACIÓN', 'Enfoque', '<div class="enfoques"><div class="enfoque princ"><b>Preventivo <span class="etiqueta-gris" style="color:var(--guinda)">Principal</span></b>Estrategias de concientización y difusión para reducir factores de riesgo antes de que ocurra un incidente.</div>' +
+        '<div class="enfoque"><b>Correctivo</b>Se solicita al jefe de cuadrante de la SSC mediante el formato oficial, dejando constancia de la acción y su seguimiento.</div></div>'),
+      UI.tarjetaG('ALCANCE DE CAMPAÑA', 'Canales de difusión', '<p class="nota" style="margin:0 0 6px">Selecciona los canales recomendados</p>' +
+        '<label class="canal"><input type="checkbox" checked>Pantallas de la escuela</label><label class="canal"><input type="checkbox" checked>Redes oficiales de ESCOM</label><label class="canal"><input type="checkbox">Páginas oficiales en Google</label><p class="nota" id="canales-txt" style="margin-top:8px"></p>')
+    ], 2) +
+    '<section class="tarjeta" id="violentometro"><div class="tit"><div><small>RECURSO DE CONSULTA</small><h2>Violentómetro y Acosómetro (Red de Género)</h2><p>Consulta señales concretas para apoyar la prevención, detección y canalización. La gravedad aumenta conforme avanza la escala.</p></div></div>' +
           '<div class="cuerpo"><div class="zonas-v">' +
           [['v', 'NIVELES 1–11', '¡Ten cuidado! La violencia aumentará', [1, 6, 11], '✓'], ['a', 'NIVELES 12–21', '¡Reacciona! ¡No te dejes destruir!', [12, 17, 21], '▲'], ['r', 'NIVELES 22–30', '¡Necesitas ayuda profesional!', [22, 26, 30], '!']].map(z =>
             '<div class="zv ' + z[0] + '"><div class="zv-cab"><b style="border-radius:50%;width:22px;height:22px;display:grid;place-items:center;color:#fff">' + z[4] + '</b><div><small>' + z[1] + '</small>' + z[2] + '</div></div>' +
             z[3].map(n => '<div class="n"><b>' + n + '</b>' + ESCALAS.violentometro.niveles[n] + '</div>').join('') + '</div>').join('') +
           '</div><div style="display:flex;gap:10px;justify-content:center;margin-top:14px"><a class="btn lleno" href="#tarjetas" style="text-decoration:none">Estrategia preventiva recomendada ' + I.flecha + '</a>' +
-          '<a class="btn lleno" href="3_violentometro.html' + location.search + '" style="text-decoration:none">Ver escala completa ' + I.flecha + '</a></div></div></section>' +
-      '</div>' +
-    '</div>';
+          '<a class="btn lleno" href="3_violentometro.html' + location.search + '" style="text-decoration:none">Ver escala completa ' + I.flecha + '</a></div></div></section>';
 
   const $ = id => document.getElementById(id);
   const pg = new URLSearchParams(location.search).get('grupo');

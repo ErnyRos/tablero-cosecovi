@@ -5,7 +5,9 @@
 <title>Inspección de casos particulares · Tablero COSECOVI</title>
 <link rel="stylesheet" href="../estilos.css">
 <style>
-  .rej-i { display: grid; grid-template-columns: 210px minmax(0,1fr) 370px; gap: 14px; align-items: start; }
+  .rej-i { display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .rej-i { grid-template-columns: 1fr; } .ficha { position: static; max-height: none; } }
+  .vf #extra { display: flex; gap: 6px; flex-wrap: wrap; align-self: center; }
   .ficha { position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow-y: auto; }
   .ficha-cab { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
   .ficha-cab h2 { margin: 0; font-size: 15px; }
@@ -38,31 +40,31 @@
   const MED_AL = ['Ninguna', 'Cambio de grupo', 'Apoyo psicológico', 'Suspensión temporal', 'Dado de baja', 'Turnado a la Comisión de Honor'];
   const MED_PR = ['Ninguna', 'Cambio de grupo', 'Reducción de horas de clase', 'Dado de baja de la materia', 'Turnado a la Comisión de Honor'];
 
+  const FIL = [['tipo', 'Tipo de incidente', M.TIPOS.map(t => [t, M.corto(t)])], ['modo', 'Modalidad (cómo)', M.MODOS], ['nivel', 'Nivel de riesgo', ['Alto', 'Medio']], ['fase', 'Fase', M.FASES], ['destino', 'Destino de canalización', Object.keys(M.DESTINOS).map(k => [k, M.DESTINO_CORTO[k]])],
+    ['ambito', 'Ámbito', ['Interno', 'Externo']], ['afectado', 'Tipo de afectado', M.AFECTADOS], ['atencion', 'Tipo de atención', ['Inmediata', 'Programada']]];
+  const sf = k => { const f = FIL.find(x => x[0] === k); return UI.fSelect('f-' + k, f[1], f[2], '', 'Todos', ' data-k="' + k + '"'); };
+  UI.filtros(
+    UI.fCampo('q-cos', 'Número de reporte', '<div class="buscar">' + I.buscar + '<input id="q-cos" placeholder="COS-2026-00XX"></div>') +
+    UI.fCampo('q-exp', 'Expediente · Enter lo abre', '<div class="buscar">' + I.buscar + '<input id="q-exp" placeholder="EXP-2026-00XX" title="Enter abre el expediente con sus reportes."></div>') +
+    sf('tipo') + sf('fase') + '<div id="extra"></div>',
+    sf('modo') + sf('nivel') + sf('destino') + sf('ambito') + sf('afectado') + sf('atencion') +
+    UI.fCampo('f-persona', 'Persona involucrada <span class="cifrado">' + I.candado + '</span>', '<input id="f-persona" placeholder="Boleta o núm. de empleado">'));
+
   document.querySelector('.pagina').innerHTML =
     UI.encabezado('doc', 'TRAZABILIDAD Y SEGUIMIENTO', 'Inspección de casos particulares', 'Consulta el expediente de un caso, sus reportes ligados y la ruta completa desde el registro hasta el cierre.' + (gestiona ? '' : ' Modo de solo consulta.'), UI.restringida()) +
+    '<input type="checkbox" id="agrupar" hidden>' +
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:13px">Inspeccionar por:</b><div class="seg" id="modoIns"><button data-v="casos">' + I.doc + 'Casos (reportes)</button><button data-v="exp">' + I.carpeta + 'Expedientes</button></div>' +
+      '<span class="nota" id="ayudaModo"></span></div>' +
+    '<div class="kpis" id="kpis" style="margin-top:-8px"></div>' +
     '<div class="rej-i">' +
-      '<aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Buscar y filtrar') +
-        '<div class="campo"><label for="q-cos">Buscar por número de reporte</label><div class="buscar">' + I.buscar + '<input id="q-cos" placeholder="COS-2026-00XX"></div></div>' +
-        '<div class="campo"><label for="q-exp">Buscar por expediente</label><div class="buscar">' + I.buscar + '<input id="q-exp" placeholder="EXP-2026-00XX"></div><div class="ayuda">Enter abre el expediente con sus reportes.</div></div>' +
-        '<input type="checkbox" id="agrupar" hidden>' +
-        '<div class="sub">Filtros combinables</div><div id="extra"></div>' +
-        [['tipo', 'Tipo de incidente', M.TIPOS.map(t => [t, M.corto(t)])], ['modo', 'Modalidad (cómo)', M.MODOS], ['nivel', 'Nivel de riesgo', ['Alto', 'Medio']], ['fase', 'Fase', M.FASES], ['destino', 'Destino de canalización', Object.keys(M.DESTINOS).map(k => [k, M.DESTINO_CORTO[k]])],
-          ['ambito', 'Ámbito', ['Interno', 'Externo']], ['afectado', 'Tipo de afectado', M.AFECTADOS], ['atencion', 'Tipo de atención', ['Inmediata', 'Programada']]]
-          .map(f => '<div class="campo"><label for="f-' + f[0] + '">' + f[1] + '</label><select id="f-' + f[0] + '" data-k="' + f[0] + '">' + UI.opts(f[2], '', 'Todos') + '</select></div>').join('') +
-        '<div class="campo"><label for="f-persona">Persona involucrada <span class="cifrado">' + I.candado + '</span></label><input id="f-persona" placeholder="Boleta o núm. de empleado"></div>' +
-        '<button class="btn bloque" id="limpiar">Limpiar filtros</button>' +
-      '</aside>' +
-      '<div class="col">' +
-        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:12.5px">Inspeccionar por:</b><div class="seg" id="modoIns"><button data-v="casos">' + I.doc + 'Casos (reportes)</button><button data-v="exp">' + I.carpeta + 'Expedientes</button></div>' +
-        '<span class="nota" id="ayudaModo"></span></div>' +
-        '<div class="kpis" id="kpis"></div>' +
+      '<div style="display:grid;gap:18px;min-width:0">' +
         '<section class="tarjeta"><div class="t-env"><table class="t" id="tabla"></table></div><div class="pie-tabla"><span id="conteo"></span><div class="paginas" id="pags"></div></div>' +
           '<div class="pie-tabla"><span class="nota">' + I.candado + 'Acceso registrado en bitácora · Esta vista no es exportable</span></div></section>' +
         '<section class="tarjeta" id="detExp" hidden></section>' +
-        '<div class="fila2" id="stats"></div>' +
       '</div>' +
       '<aside class="tarjeta ficha" id="ficha"></aside>' +
-    '</div>';
+    '</div>' +
+    '<div id="stats"></div>';
 
   const $ = id => document.getElementById(id);
   const EXTRA = {}; ['lugar', 'grupo'].forEach(k => { if (qs.get(k)) EXTRA[k === 'lugar' ? 'lug' : k] = qs.get(k); });
@@ -76,7 +78,7 @@
   function pintarTabla() {
     const L = lista(), K = M.metricas(L), agr = $('agrupar').checked, porPag = 10;
     document.querySelectorAll('#modoIns button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'exp') === agr));
-    $('ayudaModo').textContent = agr ? 'Busca por número de expediente o por persona involucrada en el panel izquierdo; selecciona uno para ver todos sus casos.' : 'Cada fila es un reporte (COS); su expediente aparece a la derecha.';
+    $('ayudaModo').textContent = agr ? 'Busca por número de expediente o por persona involucrada en la barra de filtros; selecciona uno para ver todos sus casos.' : 'Cada fila es un reporte (COS); su expediente aparece a la derecha.';
     const EX = M.expedientes(L), abierto = e => e.reportes.some(r => r.fase !== 'Cerrado');
     if (agr) $('kpis').innerHTML = UI.kpi('carpeta', '', 'Expedientes', EX.length, K.total + ' reportes en el periodo') +
       UI.kpi('alerta', 'rojo', 'Con reincidencia', EX.filter(e => e.reportes.length > 1).length, 'Más de un reporte') +
@@ -107,9 +109,9 @@
     pintarDetalleExp();
 
     const top = M.expedientes(L).sort((a, b) => b.reportes.length - a.reportes.length).slice(0, 5);
-    $('stats').innerHTML = UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
-        '<p class="nota" style="margin-top:8px">' + I.reloj + 'Primera atención promedio ' + K.primeraAtencionH + ' h · cierre promedio ' + K.cierreDias + ' días</p>') +
-      UI.tarjetaG('REINCIDENCIA', 'Expedientes con más reportes', '<div id="topexp">' + G.barras(top.map(e => ({ et: e.id, v: e.reportes.length })), G.COL.guinda, 110) + '</div><p class="nota" style="margin-top:6px">' + I.carpeta + 'Selecciona un expediente para ver su ruta.</p>');
+    $('stats').innerHTML = UI.seccion('Estadísticas', 'Seguimiento y reincidencia de los casos que cumplen los filtros.', [UI.tarjetaG('SEGUIMIENTO', 'Tipo de atención', G.dona([{ et: 'Inmediata (< 1 h)', v: K.inmediata, color: G.COL.atencion }, { et: 'Programada', v: K.programada, color: '#9fb8d3' }], 'casos') +
+        '<p class="nota" style="margin-top:8px">' + I.reloj + 'Primera atención promedio ' + K.primeraAtencionH + ' h · cierre promedio ' + K.cierreDias + ' días</p>'),
+      UI.tarjetaG('REINCIDENCIA', 'Expedientes con más reportes', '<div id="topexp">' + G.barras(top.map(e => ({ et: e.id, v: e.reportes.length })), G.COL.guinda, 110) + '</div><p class="nota" style="margin-top:6px">' + I.carpeta + 'Selecciona un expediente para ver su ruta.</p>')], 2);
     $('topexp').querySelectorAll('.barra').forEach((b, i) => { b.style.cursor = 'pointer'; b.onclick = () => seleccionar(top[i].id); });
   }
 
@@ -208,7 +210,7 @@
       '</tbody></table></div>' +
       '<div class="cuerpo" style="padding-top:12px"><div class="dato"><dt>Persona involucrada</dt><dd>' + (conocida ? persona(rs[0]) : 'No identificada') + '</dd></div>' +
         '<div class="dato"><dt>Otros expedientes de esta persona</dt><dd>' + (otros.length ? otros.map(e => '<button class="chip-exp" data-exp="' + e + '">' + e + '</button>').join(' ') : (conocida ? 'Ninguno' : '—')) + '</dd></div>' +
-        '<p class="nota" style="margin-top:8px">' + I.ruta + 'Selecciona un caso para abrir su ficha, o consulta la ruta completa del expediente en el panel derecho.</p></div>';
+        '<p class="nota" style="margin-top:8px">' + I.ruta + 'Selecciona un caso para abrir su ficha, o consulta la ruta completa del expediente en la ficha de la derecha.</p></div>';
     D.querySelectorAll('tr[data-caso]').forEach(tr => tr.onclick = () => { sel = tr.dataset.caso; fichaTab = 'ficha'; pintarFicha(); D.querySelectorAll('tr').forEach(x => x.classList.toggle('sel', x === tr)); });
     D.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => seleccionar(b.dataset.exp));
     D.querySelectorAll('[data-revelar]').forEach(b => b.onclick = () => { revelado[b.dataset.revelar] = 1; M.evento(ROL.clave, 'Consulta de dato cifrado', b.dataset.revelar, 'Persona involucrada'); pintarDetalleExp(); pintarFicha(); });

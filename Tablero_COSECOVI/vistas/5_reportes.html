@@ -5,12 +5,11 @@
 <title>Reportes · Tablero COSECOVI</title>
 <link rel="stylesheet" href="../estilos.css">
 <style>
-  .kpis4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .t-ofi td { vertical-align: top; }
   .t-ofi .fases { font-size: 11.5px; color: var(--texto-2); line-height: 1.5; }
   .ct { display: inline-block; font-size: 10.5px; font-weight: 800; background: var(--morado-bg); color: var(--morado); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
   .var-sube { color: var(--guinda); font-weight: 700; } .var-baja { color: #3c3438; font-weight: 700; }
-  .per-sel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .per-sel { display: flex; gap: 6px; }
   /* Formulario */
   .form { padding: 16px; }
   .bloque { border: 1px solid var(--borde); border-radius: 8px; padding: 12px 14px 4px; margin-bottom: 12px; }
@@ -54,19 +53,22 @@
     const g = UI.filtroGlobal(), iB = MESES.indexOf(g.hasta);
     $('enc').innerHTML = UI.encabezado('escudo', 'CONCENTRADO INSTITUCIONAL', 'Reporte COSECOVI', 'Reporte mensual único para la COSECOVI de Dirección General y, por su conducto, para Secretaría General.',
       '<button class="btn" id="xls">' + I.descarga + 'Exportar a Excel</button><button class="btn lleno" id="pdf">' + I.descarga + 'Exportar a PDF</button>');
-    $('cont').innerHTML = '<div class="rej-l"><aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Filtros para reporte') +
-      '<div class="seg" id="modo" style="display:flex;margin-bottom:12px"><button data-m="0" style="flex:1" class="' + (comparar ? '' : 'on') + '">Periodo</button><button data-m="1" style="flex:1" class="' + (comparar ? 'on' : '') + '">' + I.comparar + 'Comparar</button></div>' +
-      (comparar ? '<div class="campo"><label>Periodo A · desde / hasta</label><div class="per-sel">' + selMes('a-d', MESES[Math.max(0, iB - 1)]) + selMes('a-h', MESES[Math.max(0, iB - 1)]) + '</div></div>' +
-        '<div class="campo"><label>Periodo B · desde / hasta</label><div class="per-sel">' + selMes('b-d', g.hasta) + selMes('b-h', g.hasta) + '</div><div class="ayuda">Cada periodo puede ser un mes o un rango, por ejemplo feb–abr contra may–jul.</div></div><div class="sub">Filtros comunes</div>' : '<p class="nota" style="margin:-4px 0 10px">Periodo: <b>' + UI.periodoTexto() + '</b> (barra superior)</p>') +
-      FILTROS.map(f => '<div class="campo"><label for="f-' + f[0] + '">' + f[1] + '</label><select id="f-' + f[0] + '" data-k="' + f[0] + '">' + UI.opts(f[2], new URLSearchParams(location.search).get(f[0]) || '', 'Todos') + '</select></div>').join('') +
-      '<button class="btn bloque" id="limpiar">Limpiar filtros</button></aside><div class="col" id="principal"></div></div>';
+    const q = new URLSearchParams(location.search), fs = k => FILTROS.find(f => f[0] === k);
+    const sf = k => { const f = fs(k); return UI.fSelect('f-' + k, f[1], f[2], q.get(k) || '', 'Todos', ' data-k="' + k + '"'); };
+    UI.filtros(
+      UI.fCampo('modo', 'Tipo de consulta', '<div class="seg" id="modo"><button data-m="0" class="' + (comparar ? '' : 'on') + '">Periodo</button><button data-m="1" class="' + (comparar ? 'on' : '') + '">' + I.comparar + 'Comparar</button></div>') +
+      (comparar ? UI.fCampo('a-d', 'Periodo A · desde / hasta', '<div class="per-sel">' + selMes('a-d', MESES[Math.max(0, iB - 1)]) + selMes('a-h', MESES[Math.max(0, iB - 1)]) + '</div>') +
+        UI.fCampo('b-d', 'Periodo B · desde / hasta', '<div class="per-sel">' + selMes('b-d', g.hasta) + selMes('b-h', g.hasta) + '</div>') : '') +
+      sf('tipo') + sf('semaforo') + sf('fase'),
+      sf('modo') + sf('ambito') + sf('afectado') + sf('destino') + sf('atencion'));
+    $('cont').innerHTML = '<div id="principal" style="display:grid;gap:22px"></div>';
     $('modo').querySelectorAll('button').forEach(b => b.onclick = () => { comparar = b.dataset.m === '1'; vistaMensual(); });
-    $('cont').querySelectorAll('select[data-k], .per-sel select').forEach(s => s.onchange = () => { pag = 1; pintarMensual(); });
-    $('limpiar').onclick = () => { $('cont').querySelectorAll('select[data-k]').forEach(s => s.value = ''); pintarMensual(); };
+    $('vf').querySelectorAll('select[data-k], .per-sel select').forEach(s => s.onchange = () => { pag = 1; pintarMensual(); });
+    $('limpiar').onclick = () => { $('vf').querySelectorAll('select[data-k]').forEach(s => s.value = ''); pintarMensual(); };
     $('xls').onclick = exportarCSV; $('pdf').onclick = () => { M.evento(ROL.clave, 'Exportación', 'Reportes', 'Reporte ' + UI.periodoTexto() + ' · PDF'); window.print(); };
     pintarMensual();
   }
-  const criterios = () => { const c = {}; $('cont').querySelectorAll('select[data-k]').forEach(s => { if (s.value) c[s.dataset.k] = s.value; }); return c; };
+  const criterios = () => { const c = {}; $('vf').querySelectorAll('select[data-k]').forEach(s => { if (s.value) c[s.dataset.k] = s.value; }); return c; };
 
   function pintarMensual() {
     if (comparar) return pintarComparar();
@@ -74,9 +76,9 @@
     const filasCat = M.TIPOS.map(t => ({ t, rs: L.filter(r => r.tipo === t) })).filter(x => x.rs.length);
     const porPag = 10, vis = L.slice().reverse().slice((pag - 1) * porPag, pag * porPag);
     $('principal').innerHTML =
-      '<div class="kpis4">' + UI.kpi('escudo', '', 'Total de registros', K.total, K.expedientes + ' expedientes') + UI.kpi('alerta', 'rojo', 'Incidentes rojos', K.rojos) +
+      '<div class="kpis">' + UI.kpi('escudo', '', 'Total de registros', K.total, K.expedientes + ' expedientes') + UI.kpi('alerta', 'rojo', 'Incidentes rojos', K.rojos) +
         UI.kpi('alerta', 'amar', 'Incidentes amarillos', K.amarillos) + UI.kpi('mapa', '', 'Zonas reportadas', K.zonasReportadas) + '</div>' +
-      '<div class="kpis4">' + UI.kpi('enviar', 'morado', 'Canalizados del periodo', K.canalizados, 'Por oficio') + UI.kpi('enviar', 'morado', 'COSECOVI Dirección General', K.porDestino.DG) +
+      '<div class="kpis" style="margin-top:-12px">' + UI.kpi('enviar', 'morado', 'Canalizados del periodo', K.canalizados, 'Por oficio') + UI.kpi('enviar', 'morado', 'COSECOVI Dirección General', K.porDestino.DG) +
         UI.kpi('enviar', 'morado', 'Consejo Técnico (Comisión de Honor)', K.porDestino.CT) + UI.kpi('enviar', 'morado', 'SSC', K.porDestino.SSC, 'Delitos graves') + '</div>' +
       '<section class="tarjeta"><div class="tit"><div><small>CONCENTRADO DEL PERIODO · ' + UI.periodoTexto().toUpperCase() + '</small><h2>Información para el reporte oficial</h2></div><span class="etiqueta-gris">Datos sintéticos calibrados</span></div>' +
         '<div class="t-env"><table class="t t-ofi"><thead><tr><th>Incidente (delito)</th><th class="num">Número de veces que ocurrió</th><th>Fecha(s)</th><th>Hora(s)</th><th>Ubicación general</th><th>Acciones tomadas (Acuerdo COSECOVI)</th><th>Fase</th><th>Canalización · oficio</th></tr></thead><tbody>' +
@@ -93,14 +95,14 @@
         vis.map(r => '<tr><td>' + (UI.enlace('inspeccion', { caso: r.cos }) ? '<a class="cos" href="' + UI.enlace('inspeccion', { caso: r.cos }) + '">' + r.cos + '</a>' : '<b>' + r.cos + '</b>') + '</td><td>' + u.fmtF(r.fecha) + '</td><td>' + r.hora + '</td><td>' + UI.sem(r.semaforo, M.corto(r.tipo)) + '</td><td>' + r.ambito + '</td><td>' + r.afectado + '</td>' +
           '<td>' + r.zona + '</td><td>' + UI.chipFase(r.fase) + '</td><td>' + (r.canal ? M.DESTINO_CORTO[r.canal[0]] + (r.canal[0] === 'CT' ? '<span class="ct">CT</span>' : '') + '<br><span style="font-size:11.5px">' + r.canal[1] + '</span>' : '—') + '</td></tr>').join('') +
         '</tbody></table></div><div class="pie-tabla"><span>Mostrando ' + (L.length ? (pag - 1) * porPag + 1 : 0) + '–' + Math.min(pag * porPag, L.length) + ' de ' + L.length + ' incidentes</span><div class="paginas" id="pags"></div></div></section>' +
-      '<div class="fila3">' +
+      UI.seccion('Estadísticas', 'Resumen, flujo de atención y canalización del periodo.', [
         UI.tarjetaG('RESUMEN', 'Resumen del periodo', '<table class="t"><tbody>' + [['Reportes', K.total], ['Expedientes', K.expedientes], ['% de cierre', K.pctCierre + ' %'], ['Atención inmediata', K.inmediata + ' de ' + K.total],
-          ['1.ª atención promedio', K.primeraAtencionH + ' h'], ['Cierre promedio', K.cierreDias + ' días'], ['Interno / externo', K.interno + ' / ' + K.externo]].map(f => '<tr><td>' + f[0] + '</td><td class="num"><b>' + f[1] + '</b></td></tr>').join('') + '</tbody></table>') +
-        UI.tarjetaG('FLUJO DE ATENCIÓN', 'Reportes por fase', G.dona([{ et: 'En atención COSECOVI', v: K.enAtencion, color: G.COL.atencion }, { et: 'Canalizado', v: K.canalizado, color: G.COL.canal }, { et: 'Cerrado', v: K.cerrado, color: G.COL.cerrado }])) +
+          ['1.ª atención promedio', K.primeraAtencionH + ' h'], ['Cierre promedio', K.cierreDias + ' días'], ['Interno / externo', K.interno + ' / ' + K.externo]].map(f => '<tr><td>' + f[0] + '</td><td class="num"><b>' + f[1] + '</b></td></tr>').join('') + '</tbody></table>'),
+        UI.tarjetaG('FLUJO DE ATENCIÓN', 'Reportes por fase', G.dona([{ et: 'En atención COSECOVI', v: K.enAtencion, color: G.COL.atencion }, { et: 'Canalizado', v: K.canalizado, color: G.COL.canal }, { et: 'Cerrado', v: K.cerrado, color: G.COL.cerrado }])),
         UI.tarjetaG('CANALIZACIÓN', 'Por destino', G.barras([{ et: 'Dirección General', v: K.porDestino.DG }, { et: 'Consejo Técnico', v: K.porDestino.CT }, { et: 'SSC', v: K.porDestino.SSC }], G.COL.canal, 110) +
-          '<p class="nota" style="margin-top:10px">' + I.enviar + 'El modo de canalización siempre es por oficio.</p>') +
-      '</div>' +
-      '<p class="nota">' + I.alerta + 'El reporte se entrega cada mes a la COSECOVI de Dirección General en PDF o Excel. Al Consejo Técnico solo se le turnan los casos que lo ameritan.</p>';
+          '<p class="nota" style="margin-top:10px">' + I.enviar + 'El modo de canalización siempre es por oficio.</p>')
+      ]) +
+      '<p class="nota-info">' + I.alerta + 'El reporte se entrega cada mes a la COSECOVI de Dirección General en PDF o Excel. Al Consejo Técnico solo se le turnan los casos que lo ameritan.</p>';
     UI.paginar($('pags'), L.length, porPag, pag, p => { pag = p; pintarMensual(); });
   }
 
@@ -112,10 +114,10 @@
     const r1 = v => Math.round(v * 10) / 10;
     const fila = (et, a, b, pp) => { const d = r1(b - a); return '<tr><td>' + et + '</td><td class="num">' + a + '</td><td class="num"><b>' + b + '</b></td><td class="num ' + (d > 0 ? 'var-sube' : 'var-baja') + '">' + (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= ') + d + (pp ? ' pp' : '') + '</td><td class="num">' + (pp || !a ? '—' : (d > 0 ? '+' : '') + r1(d / a * 100) + ' %') + '</td></tr>'; };
     $('principal').innerHTML =
-      '<div class="kpis4">' + UI.kpi('doc', '', 'Reportes · ' + nB, B.total, (B.total - A.total >= 0 ? '▲ +' : '▼ ') + (B.total - A.total) + ' vs ' + nA) + UI.kpi('check', 'verde', '% de cierre · ' + nB, B.pctCierre + ' %', r1(B.pctCierre - A.pctCierre) + ' pp vs ' + nA) +
+      '<div class="kpis">' + UI.kpi('doc', '', 'Reportes · ' + nB, B.total, (B.total - A.total >= 0 ? '▲ +' : '▼ ') + (B.total - A.total) + ' vs ' + nA) + UI.kpi('check', 'verde', '% de cierre · ' + nB, B.pctCierre + ' %', r1(B.pctCierre - A.pctCierre) + ' pp vs ' + nA) +
         UI.kpi('enviar', 'morado', 'Canalizados · ' + nB, B.canalizados, (B.canalizados - A.canalizados >= 0 ? '+' : '') + (B.canalizados - A.canalizados) + ' vs ' + nA) + UI.kpi('reloj', 'azul', '1.ª atención · ' + nB, B.primeraAtencionH + ' h', r1(B.primeraAtencionH - A.primeraAtencionH) + ' h vs ' + nA) + '</div>' +
-      '<div class="fila2" style="align-items:start">' +
-        '<section class="tarjeta"><div class="tit"><div><small>COMPARACIÓN DE PERIODOS</small><h2>' + nA + ' vs ' + nB + '</h2></div></div><table class="t"><thead><tr><th>Indicador</th><th class="num">A · ' + nA + '</th><th class="num">B · ' + nB + '</th><th class="num">Diferencia</th><th class="num">Variación</th></tr></thead><tbody>' +
+      '<div class="dos" style="align-items:start">' +
+        '<section class="tarjeta"><div class="tit"><div><small>COMPARACIÓN DE PERIODOS</small><h2>' + nA + ' vs ' + nB + '</h2><p>Cada periodo puede ser un mes o un rango, por ejemplo feb–abr contra may–jul.</p></div></div><table class="t"><thead><tr><th>Indicador</th><th class="num">A · ' + nA + '</th><th class="num">B · ' + nB + '</th><th class="num">Diferencia</th><th class="num">Variación</th></tr></thead><tbody>' +
           fila('Reportes', A.total, B.total) + fila('Expedientes', A.expedientes, B.expedientes) + fila('Incidentes rojos', A.rojos, B.rojos) + fila('Incidentes amarillos', A.amarillos, B.amarillos) +
           fila('En atención COSECOVI', A.enAtencion, B.enAtencion) + fila('Canalizado', A.canalizado, B.canalizado) + fila('Cerrado', A.cerrado, B.cerrado) + fila('% de cierre', A.pctCierre, B.pctCierre, true) +
           fila('Canalizados', A.canalizados, B.canalizados) + fila('· Dirección General', A.porDestino.DG, B.porDestino.DG) + fila('· Consejo Técnico', A.porDestino.CT, B.porDestino.CT) + fila('· SSC', A.porDestino.SSC, B.porDestino.SSC) +
@@ -142,6 +144,7 @@
   /* ======================= AGREGAR REPORTE ======================= */
   const nuevos = [];
   function vistaAgregar() {
+    UI.filtros(null);
     const sig = 'COS-2026-' + String(M.REPORTES.length + 1).padStart(4, '0');
     $('enc').innerHTML = UI.encabezado('doc', 'CAPTURA', 'Agregar reporte', 'Registra un nuevo incidente para integrarlo al expediente de COSECOVI.', UI.restringida());
     const campo = (id, et, ctrl, req, cls) => '<div class="campo' + (cls ? ' ' + cls : '') + '" id="c-' + id + '"><label for="' + id + '">' + et + (req ? ' <span class="req">*</span>' : '') + '</label>' + ctrl + '<div class="msg-error">Campo obligatorio</div></div>';
@@ -173,7 +176,7 @@
         '<button class="btn lleno bloque" id="guardar" style="padding:12px">Guardar reporte</button>' +
         '<p class="nota" style="margin-top:8px">' + I.escudo + 'Al guardar, el sistema asigna el número de reporte, crea o liga el expediente y registra tu usuario, fecha y hora en la bitácora de auditoría de solo inserción. El reporte entra directo, sin aprobación.</p>' +
       '</section>' +
-      '<section class="tarjeta" style="margin-top:14px"><div class="tit"><div><small>LISTADO</small><h2>Reportes capturados en el periodo</h2></div></div><div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Macro-zona</th><th>Tipo de incidente</th><th>Nivel</th><th>Fase</th><th>Expediente</th><th>Registró</th></tr></thead><tbody id="listado"></tbody></table></div>' +
+      '<section class="tarjeta" style="margin-top:22px"><div class="tit"><div><small>LISTADO</small><h2>Reportes capturados en el periodo</h2></div></div><div class="t-env"><table class="t"><thead><tr><th>No. de reporte</th><th>Fecha</th><th>Hora</th><th>Macro-zona</th><th>Tipo de incidente</th><th>Nivel</th><th>Fase</th><th>Expediente</th><th>Registró</th></tr></thead><tbody id="listado"></tbody></table></div>' +
         '<div class="pie-tabla"><span>Información ficticia para fines de visualización · Acceso registrado en bitácora · Esta vista no es exportable</span><span id="nlist"></span></div></section>';
 
     if (!ROL.captura) {

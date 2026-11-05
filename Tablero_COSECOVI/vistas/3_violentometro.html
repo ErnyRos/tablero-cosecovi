@@ -5,7 +5,9 @@
 <title>Violentómetro y Acosómetro · Tablero COSECOVI</title>
 <link rel="stylesheet" href="../estilos.css">
 <style>
-  .escala-cont { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 14px; align-items: start; }
+  .escala-cont { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 18px; align-items: start; }
+  .escala-cont > aside { position: sticky; top: 14px; }
+  @media (max-width: 900px) { .escala-cont { grid-template-columns: 1fr; } .escala-cont > aside { position: static; } }
   .zona { border: 1px solid; border-left-width: 4px; border-radius: 8px; margin: 0 0 12px; overflow: hidden; }
   .zona-cab { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
   .zona-cab small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .6px; }
@@ -32,9 +34,10 @@
   let cual = 'violentometro';
   const pendientes = e => Object.values(ESCALAS[e].niveles).filter(v => !v).length;
 
+  UI.filtros(UI.fCampo('seg', 'Escala', '<div class="seg" id="seg"><button data-e="violentometro" class="on">Violentómetro <span class="etiqueta-gris">30 niveles</span></button><button data-e="acosometro">Acosómetro <span class="etiqueta-gris">17 niveles</span></button></div>'), '', false);
+
   document.querySelector('.pagina').innerHTML =
     UI.encabezado('usuarios', 'HERRAMIENTA DE CONSULTA', 'Violentómetro y Acosómetro', 'Identifica señales de riesgo y reconoce cuándo es necesario solicitar apoyo.') +
-    '<div class="seg" id="seg" style="margin-bottom:14px"><button data-e="violentometro" class="on">Violentómetro <span class="etiqueta-gris">30 niveles</span></button><button data-e="acosometro">Acosómetro <span class="etiqueta-gris">17 niveles</span></button></div>' +
     '<div class="escala-cont"><section class="tarjeta" id="escala"></section>' +
     '<aside class="col"><section class="tarjeta"><div class="cuerpo" style="padding-top:14px">' +
       '<div class="kpi-ico" style="border-radius:8px;width:36px;height:36px">' + I.escudo + '</div>' +

@@ -11,7 +11,10 @@
   .cab-delito h2 { margin: 6px 0 2px; font-size: 20px; }
   .cab-delito p { margin: 0; font-size: 12.5px; color: var(--texto-2); }
   .tag { display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
-  .centro { display: grid; grid-template-columns: minmax(0,1fr) 330px; gap: 14px; align-items: start; }
+  .mapa-c { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 18px; padding: 0 18px 18px; align-items: start; }
+  .ctx { background: #fbf8f9; border-radius: 10px; padding: 12px 14px; }
+  .ctx .factor:first-of-type { border-top: none; }
+  @media (max-width: 900px) { .mapa-c { grid-template-columns: 1fr; } }
   .factor { display: flex; gap: 8px; padding: 9px 0; border-top: 1px solid var(--borde); font-size: 12px; }
   .factor svg { width: 15px; height: 15px; color: var(--guinda); flex: none; margin-top: 1px; }
   .factor b { display: block; font-size: 12.5px; }
@@ -30,32 +33,23 @@
   let patron = 'dia';
   const inicial = new URLSearchParams(location.search).get('delito');
 
+  UI.filtros(
+    UI.fSelect('f-grupo', 'Delito', GR, GR.includes(inicial) ? inicial : GR[0]).replace('class="campo"', 'class="campo ancho"') +
+    UI.fCampo('f-modo', 'Modalidad (cómo)', '<select id="f-modo"></select>') +
+    UI.fSelect('f-amb', 'Ámbito', ['Interno', 'Externo'], '', 'Interno y externo'),
+    UI.fSelect('f-afe', 'Tipo de afectado', M.AFECTADOS, '', 'Todos') +
+    UI.fSelect('f-fase', 'Fase', M.FASES, '', 'Todas') +
+    '<div class="campo hora"><label for="f-hd">Hora desde</label><input type="time" id="f-hd"></div><div class="campo hora"><label for="f-hh">Hora hasta</label><input type="time" id="f-hh"></div>');
+
   document.querySelector('.pagina').innerHTML =
     UI.encabezado('escudo', 'CONSULTA ESPECIALIZADA', 'Análisis por delito', 'Comportamiento, ubicación y registros del delito seleccionado.') +
-    '<div class="rej-l">' +
-      '<aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Filtros') +
-        '<div class="campo"><label for="f-grupo">Delito</label><select id="f-grupo">' + UI.opts(GR, GR.includes(inicial) ? inicial : GR[0]) + '</select></div>' +
-        '<div class="campo"><label for="f-modo">Modalidad (cómo)</label><select id="f-modo"></select></div>' +
-        '<div class="campo"><label for="f-amb">Ámbito</label><select id="f-amb">' + UI.opts(['Interno', 'Externo'], '', 'Interno y externo') + '</select></div>' +
-        '<div class="campo"><label for="f-afe">Tipo de afectado</label><select id="f-afe">' + UI.opts(M.AFECTADOS, '', 'Todos') + '</select></div>' +
-        '<div class="campo"><label for="f-fase">Fase</label><select id="f-fase">' + UI.opts(M.FASES, '', 'Todas') + '</select></div>' +
-        '<div class="sub">Hora</div>' +
-        '<div class="dos-campos"><div class="campo"><label for="f-hd">Desde</label><input type="time" id="f-hd"></div><div class="campo"><label for="f-hh">Hasta</label><input type="time" id="f-hh"></div></div>' +
-        '<button class="btn bloque" id="limpiar">Limpiar filtros</button>' +
-        '<div class="clave" id="contexto"></div>' +
-      '</aside>' +
-      '<div class="col">' +
-        '<section class="tarjeta cab-delito" id="cabd"></section>' +
-        '<div class="kpis" id="kpis"></div>' +
-        '<div class="centro">' +
-          '<section class="tarjeta"><div class="tit"><div><small>UBICACIÓN DE REPORTES</small><h2>Incidentes de este delito</h2><p>Se muestran únicamente los puntos asociados a la selección. Da clic en un punto para abrir sus casos y su expediente.</p></div><span class="chip np n-alto" id="npuntos"></span></div><div class="cuerpo" id="mapa"></div></section>' +
-          '<div class="col"><section class="tarjeta" id="hist"></section><section class="tarjeta" id="patron"></section></div>' +
-        '</div>' +
-        '<section class="tarjeta"><div class="tit"><div><small>DETALLE DEL PERIODO</small><h2>Incidentes registrados</h2><p>Registros ficticios consolidados para fines de visualización.</p></div></div>' +
-          '<div class="t-env"><table class="t"><thead><tr><th>Lugar / Ubicación</th><th>Fecha(s)</th><th>Hora(s)</th><th class="num">Número de veces</th><th>Gravedad</th><th>Fase</th><th>Acuerdo COSECOVI · acciones tomadas</th><th></th></tr></thead><tbody id="detalle"></tbody></table></div></section>' +
-        '<div class="fila2"><section class="tarjeta" id="modos"></section><section class="tarjeta" id="comparativo"></section></div>' +
-      '</div>' +
-    '</div>';
+    '<section class="tarjeta cab-delito" id="cabd"></section>' +
+    '<div class="kpis" id="kpis"></div>' +
+    '<section class="tarjeta"><div class="tit"><div><small>UBICACIÓN DE REPORTES</small><h2>Incidentes de este delito</h2><p>Se muestran únicamente los puntos asociados a la selección. Da clic en un punto para abrir sus casos y su expediente.</p></div><span class="chip np n-alto" id="npuntos"></span></div>' +
+      '<div class="mapa-c"><div id="mapa"></div><div class="ctx" id="contexto"></div></div></section>' +
+    '<section class="tarjeta"><div class="tit"><div><small>DETALLE DEL PERIODO</small><h2>Incidentes registrados por lugar</h2><p>Registros ficticios consolidados para fines de visualización.</p></div></div>' +
+      '<div class="t-env"><table class="t"><thead><tr><th>Lugar / Ubicación</th><th>Fecha(s)</th><th>Hora(s)</th><th class="num">Número de veces</th><th>Gravedad</th><th>Fase</th><th>Acuerdo COSECOVI · acciones tomadas</th><th></th></tr></thead><tbody id="detalle"></tbody></table></div></section>' +
+    '<div id="estad"></div>';
 
   const $ = id => document.getElementById(id);
   function pintar() {
@@ -85,17 +79,16 @@
     const serie = M.serieMensual(L, base.desde, base.hasta), proy = M.proyeccion(serie, 3);
     const ult = serie.slice(-3), mh = ult.reduce((s, x) => s + x.n, 0) / (ult.length || 1), mp = proy.reduce((s, x) => s + x.n, 0) / (proy.length || 1);
     const cambio = mh ? Math.round((mp - mh) / mh * 100) : 0;
-    $('hist').innerHTML = '<div class="tit"><div><small>HISTÓRICO Y ESTIMACIÓN</small><h2>Tendencia temporal</h2></div>' +
+    const hHist = '<section class="tarjeta"><div class="tit"><div><small>HISTÓRICO Y ESTIMACIÓN</small><h2>Tendencia temporal</h2></div>' +
       (proy.length ? '<span class="cambio' + (cambio < 0 ? ' baja' : '') + '">' + (cambio >= 0 ? '↗ Sube ' : '↘ Baja ') + Math.abs(cambio) + ' %</span>' : '') + '</div>' +
-      '<div class="cuerpo">' + (serie.length > 1 ? G.linea(serie, { proy, W: 320, H: 160 }) : '<p class="nota">Elige un rango de meses para ver la tendencia y la proyección.</p>') + '</div>';
+      '<div class="cuerpo">' + (serie.length > 1 ? G.linea(serie, { proy, W: 420, H: 170 }) : '<p class="nota">Elige un rango de meses para ver la tendencia y la proyección.</p>') + '</div></section>';
 
     const porDia = M.DIAS.map((d, i) => ({ et: d, v: L.filter(r => M.u.diaDe(r.fecha) === i).length }));
     const porHora = M.FRANJAS.map(fr => ({ et: fr.slice(0, 2), v: K.franjas[fr] }));
     const items = patron === 'dia' ? porDia : porHora, top = items.reduce((a, b) => b.v > a.v ? b : a, items[0]);
-    $('patron').innerHTML = '<div class="tit"><div><small>PATRÓN DE OCURRENCIA</small><h2>Distribución por ' + (patron === 'dia' ? 'día' : 'hora') + '</h2></div></div><div class="cuerpo">' +
+    const hPatron = '<section class="tarjeta"><div class="tit"><div><small>PATRÓN DE OCURRENCIA</small><h2>Distribución por ' + (patron === 'dia' ? 'día' : 'hora') + '</h2></div></div><div class="cuerpo">' +
       '<div class="seg" id="seg-p" style="display:flex"><button data-p="dia" class="' + (patron === 'dia' ? 'on' : '') + '" style="flex:1">Día de la semana</button><button data-p="hora" class="' + (patron === 'hora' ? 'on' : '') + '" style="flex:1">Hora del día</button></div>' +
-      G.columnas(items) + '<div class="destacado">' + I.reloj + (patron === 'dia' ? ({ Lun: 'Lunes', Mar: 'Martes', 'Mié': 'Miércoles', Jue: 'Jueves', Vie: 'Viernes', 'Sáb': 'Sábado', Dom: 'Domingo' })[top.et] : 'Franja ' + top.et + ' h') + ': ' + top.v + ' incidentes</div></div>';
-    $('seg-p').querySelectorAll('button').forEach(b => b.onclick = () => { patron = b.dataset.p; pintar(); });
+      G.columnas(items) + '<div class="destacado">' + I.reloj + (patron === 'dia' ? ({ Lun: 'Lunes', Mar: 'Martes', 'Mié': 'Miércoles', Jue: 'Jueves', Vie: 'Viernes', 'Sáb': 'Sábado', Dom: 'Domingo' })[top.et] : 'Franja ' + top.et + ' h') + ': ' + top.v + ' incidentes</div></div></section>';
 
     const filas = Object.keys(M.contar(L, r => r.lug)).map(lug => {
       const rs = L.filter(r => r.lug === lug), fases = M.contar(rs, r => r.fase);
@@ -112,10 +105,12 @@
     const comp = M.TIPOS.map(t => ({ et: M.corto(t), v: todos.filter(r => r.tipo === t).length, icono: UI.icSem(['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? 'Amarillo' : 'Rojo'),
       color: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? G.COL.amar : G.COL.rojo, on: M.GRUPOS[g].includes(t) }));
     const modos = [...new Set(M.GRUPOS[g].flatMap(t => M.MODOS_TIPO[t]))].map(m => ({ et: m, v: L.filter(r => r.modo === m).length })).filter(x => x.v || x.et !== 'Otro').sort((a, b) => b.v - a.v);
-    $('modos').innerHTML = '<div class="tit"><div><small>CÓMO OCURRE</small><h2>Modalidad del delito seleccionado</h2><p>Según el bloque Cómo del formulario de captura.</p></div></div><div class="cuerpo">' + G.barras(modos, G.COL.guinda, 190) + '</div>';
-    $('comparativo').innerHTML = '<div class="tit"><div><small>COMPARATIVO</small><h2>Incidentes por tipo de delito y semáforo</h2><p>El delito seleccionado aparece en negritas.</p></div></div><div class="cuerpo">' + G.barras(comp, null, 160) + '</div>';
+    const hModos = '<section class="tarjeta"><div class="tit"><div><small>CÓMO OCURRE</small><h2>Modalidad del delito seleccionado</h2><p>Según el bloque Cómo del formulario de captura.</p></div></div><div class="cuerpo">' + G.barras(modos, G.COL.guinda, 190) + '</div></section>';
+    const hComp = '<section class="tarjeta"><div class="tit"><div><small>COMPARATIVO</small><h2>Incidentes por tipo de delito y semáforo</h2><p>El delito seleccionado aparece en negritas.</p></div></div><div class="cuerpo">' + G.barras(comp, null, 160) + '</div></section>';
+    $('estad').innerHTML = UI.seccion('Estadísticas', 'Cómo se comporta el delito seleccionado en el tiempo y frente a los demás.', [hHist, hPatron, hModos, hComp], 2);
+    $('seg-p').querySelectorAll('button').forEach(b => b.onclick = () => { patron = b.dataset.p; pintar(); });
 
-    $('contexto').innerHTML = '<h4 style="font-size:11px;font-weight:800;color:var(--guinda);letter-spacing:.6px">CONTEXTO</h4><p style="margin:0 0 6px;font-size:12px">Factores que influyen en el riesgo</p>' +
+    $('contexto').innerHTML = '<h4 style="margin:0;font-size:11px;font-weight:800;color:var(--guinda);letter-spacing:.6px">CONTEXTO</h4><p style="margin:2px 0 6px;font-size:13px;font-weight:600">Factores que influyen en el riesgo</p>' +
       '<div class="factor">' + I.reloj + '<div><b>Horario</b><span>' + (K.total ? 'La franja ' + K.franjaCritica + ' concentra ' + K.franjaCriticaN + ' de ' + K.total + ' reportes.' : 'Sin datos.') + '</span></div></div>' +
       '<div class="factor">' + I.mapa + '<div><b>Zona</b><span>' + (topL.length ? topL[0] + ' concentra ' + lugares[topL[0]] + ' casos.' : 'Sin datos.') + '</span></div></div>' +
       '<div class="factor">' + I.alerta + '<div><b>Tipo de delito</b><span>' + (rojo ? 'Pertenece al grupo de atención mayor y requiere atención prioritaria.' : 'Pertenece al grupo de atención amarilla: prevención y seguimiento.') + '</span></div></div>';

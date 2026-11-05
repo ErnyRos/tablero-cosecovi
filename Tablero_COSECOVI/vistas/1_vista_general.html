@@ -5,13 +5,16 @@
 <title>Vista general · Tablero COSECOVI</title>
 <link rel="stylesheet" href="../estilos.css">
 <style>
-  .centro { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 14px; align-items: start; }
-  .info { display: grid; grid-template-columns: 1.4fr .8fr .8fr 1fr 1fr; gap: 10px; margin: 10px 14px 0; padding: 10px 12px; border: 1px solid var(--borde); border-radius: 8px; background: #faf8f9; font-size: 12px; }
-  .info small { display: block; color: var(--texto-2); font-weight: 700; }
+  .mapa-c { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 18px; padding: 0 18px 18px; align-items: start; }
+  .lado { display: grid; gap: 14px; }
+  .info { display: grid; gap: 10px; font-size: 12.5px; background: #fbf8f9; border-radius: 10px; padding: 14px; }
+  .info small { display: block; color: var(--texto-2); font-weight: 700; font-size: 11px; }
   .info b { display: block; margin-top: 2px; }
-  .leyenda-mapa { display: flex; gap: 22px; padding: 12px 14px 14px; font-size: 12px; }
+  .info .atajos-ir { flex-direction: column; align-items: flex-start; }
+  .leyenda-mapa { display: grid; gap: 8px; font-size: 12px; }
   .leyenda-mapa div { display: flex; gap: 8px; align-items: center; }
   .leyenda-mapa small { display: block; color: var(--texto-2); }
+  @media (max-width: 900px) { .mapa-c { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -23,37 +26,29 @@
   const I = UI.ICON;
   let modo = 'calor', sel = null;
 
+  UI.filtros(
+    UI.fSelect('f-grupo', 'Delito', Object.keys(M.GRUPOS), '', 'Todos los delitos', '') +
+    UI.fSelect('f-sem', 'Semáforo', ['Rojo', 'Amarillo'], '', 'Todos') +
+    UI.fSelect('f-amb', 'Ámbito', ['Interno', 'Externo'], '', 'Interno y externo'),
+    UI.fSelect('f-modo', 'Modalidad (cómo)', M.MODOS, '', 'Todas') +
+    UI.fSelect('f-afe', 'Tipo de afectado', M.AFECTADOS, '', 'Todos') +
+    UI.fSelect('f-fase', 'Fase', M.FASES, '', 'Todas') +
+    '<div class="campo hora"><label for="f-hd">Hora desde</label><input type="time" id="f-hd"></div><div class="campo hora"><label for="f-hh">Hora hasta</label><input type="time" id="f-hh"></div>');
+
   document.querySelector('.pagina').innerHTML =
     UI.encabezado('escudo', 'MONITOREO PREVENTIVO', 'Vista general por zona', 'Prioridades de atención dentro del plantel y en su entorno inmediato.') +
-    '<div class="rej-l">' +
-      '<aside class="tarjeta panel">' + UI.panelTit('CONSULTA', 'Filtros') +
-        '<div class="sub" style="border:none;padding:0">Hora</div>' +
-        '<div class="dos-campos"><div class="campo"><label for="f-hd">Desde</label><input type="time" id="f-hd"></div><div class="campo"><label for="f-hh">Hasta</label><input type="time" id="f-hh"></div></div>' +
-        '<div class="campo"><label for="f-grupo">Delito</label><select id="f-grupo">' + UI.opts(Object.keys(M.GRUPOS), '', 'Todos los delitos') + '</select></div>' +
-        '<div class="campo"><label for="f-modo">Modalidad (cómo)</label><select id="f-modo">' + UI.opts(M.MODOS, '', 'Todas') + '</select></div>' +
-        '<div class="campo"><label for="f-sem">Semáforo</label><select id="f-sem">' + UI.opts(['Rojo', 'Amarillo'], '', 'Todos') + '</select></div>' +
-        '<div class="campo"><label for="f-amb">Ámbito</label><select id="f-amb">' + UI.opts(['Interno', 'Externo'], '', 'Interno y externo') + '</select></div>' +
-        '<div class="campo"><label for="f-afe">Tipo de afectado</label><select id="f-afe">' + UI.opts(M.AFECTADOS, '', 'Todos') + '</select></div>' +
-        '<div class="campo"><label for="f-fase">Fase</label><select id="f-fase">' + UI.opts(M.FASES, '', 'Todas') + '</select></div>' +
-        '<button class="btn bloque" id="limpiar">Limpiar filtros</button>' +
-        '<div class="clave"><h4>Semáforo de delitos</h4>' +
+    '<div class="kpis" id="kpis"></div>' +
+    '<section class="tarjeta"><div class="tit"><div><small>PLANTEL Y RADIO DE CONSIDERACIÓN</small><h2>Mapa de riesgo ESCOM</h2><p id="ayudaMapa">Selecciona un punto para consultar el incidente predominante.</p></div>' +
+      '<div class="seg" id="modo"><button data-m="calor" class="on">Mapa de calor</button><button data-m="puntos">Puntos de incidentes</button></div></div>' +
+      '<div class="mapa-c"><div id="mapa"></div><div class="lado"><div class="info" id="info"></div>' +
+        '<div class="leyenda-mapa"><div>' + UI.icSem('Rojo') + '<span><b>Alto</b><small>Atención inmediata</small></span></div><div>' + UI.icSem('Amarillo') + '<span><b>Medio</b><small>Atención preventiva</small></span></div>' +
+        '<div><span style="width:22px;height:14px;border:2px dashed var(--guinda);border-radius:50%;flex:none"></span><span><b>Radio</b><small>Área considerada</small></span></div></div>' +
+        '<details class="clave-d"><summary>Semáforo de delitos</summary>' +
           '<div class="niv" style="color:var(--rojo)">' + UI.icSem('Rojo') + 'Atención mayor</div><ul><li>Robos con o sin violencia</li><li>Denuncias por extorsión</li><li>Denuncias por acoso</li><li>Denuncias por ciberacoso</li></ul>' +
-          '<div class="niv" style="color:var(--amarillo)">' + UI.icSem('Amarillo') + 'Atención amarilla</div><ul><li>Delitos contra la salud: drogas, alcohol u otros</li><li>Violencia</li></ul></div>' +
-      '</aside>' +
-      '<div class="col">' +
-        '<div class="kpis" id="kpis"></div>' +
-        '<div class="centro">' +
-          '<section class="tarjeta"><div class="tit"><div><small>PLANTEL Y RADIO DE CONSIDERACIÓN</small><h2>Mapa de riesgo ESCOM</h2><p id="ayudaMapa">Selecciona un punto para consultar el incidente predominante.</p></div>' +
-            '<div class="seg" id="modo"><button data-m="calor" class="on">Mapa de calor</button><button data-m="puntos">Puntos de incidentes</button></div></div>' +
-            '<div style="padding:0 14px" id="mapa"></div><div class="info" id="info"></div>' +
-            '<div class="leyenda-mapa"><div>' + UI.icSem('Rojo') + '<span><b>Alto</b><small>Atención inmediata</small></span></div><div>' + UI.icSem('Amarillo') + '<span><b>Medio</b><small>Atención preventiva</small></span></div>' +
-            '<div><span style="width:22px;height:14px;border:2px dashed var(--guinda);border-radius:50%"></span><span><b>Radio</b><small>Área considerada</small></span></div></div>' +
-          '</section>' +
-          '<div class="col"><section class="tarjeta" id="distrib"></section><section class="tarjeta" id="horas"></section></div>' +
-        '</div>' +
-        '<div class="fila3" id="extra"></div>' +
-      '</div>' +
-    '</div>';
+          '<div class="niv" style="color:var(--amarillo)">' + UI.icSem('Amarillo') + 'Atención amarilla</div><ul><li>Delitos contra la salud: drogas, alcohol u otros</li><li>Violencia</li></ul></details>' +
+      '</div></div>' +
+    '</section>' +
+    '<div id="estad"></div>';
 
   const $ = id => document.getElementById(id);
   const filtro = () => Object.assign(UI.filtroGlobal(), { ambito: $('f-amb').value, afectado: $('f-afe').value, fase: $('f-fase').value, modo: $('f-modo').value, horaDesde: $('f-hd').value, horaHasta: $('f-hh').value, grupo: $('f-grupo').value, semaforo: $('f-sem').value });
@@ -83,7 +78,7 @@
       UI.kpi('tendencia', '', 'Índice de riesgo general', ind + '/100', UI.chipNivel(niv), 'b-guinda') +
       UI.kpi('reloj', '', 'Horario crítico', K.franjaCritica, K.franjaCriticaN + ' incidentes registrados', 'b-guinda');
 
-    $('ayudaMapa').textContent = modo === 'puntos' ? 'Da clic en un punto para abrir sus casos y su expediente en Inspección de casos particulares.' : 'Selecciona un punto para consultar el incidente predominante; abajo tienes los atajos.';
+    $('ayudaMapa').textContent = modo === 'puntos' ? 'Da clic en un punto para abrir sus casos y su expediente en Inspección de casos particulares.' : 'Selecciona un punto para consultar el incidente predominante; a la derecha tienes los atajos.';
     const res = MAPA.plano($('mapa'), L, { modo, sel, etiquetas: modo === 'puntos', alSeleccionar: clicPunto });
     if (!sel || !res.grupos[sel]) sel = Object.keys(res.grupos).filter(k => M.DATOS.lugares[k].x !== null).sort((a, b) => res.grupos[b].length - res.grupos[a].length)[0] || null;
     if (sel) {
@@ -92,23 +87,22 @@
       $('info').innerHTML = '<div><small>Lugar · ' + rs.length + ' reportes</small><b>' + M.DATOS.lugares[sel].nombre + '</b></div><div><small>Tipo predominante</small><b>' + M.corto(tipo) + '</b></div>' +
         '<div><small>Hora frecuente</small><b>' + hora + '</b></div><div><small>Gravedad</small><b>' + UI.sem(semR ? 'Rojo' : 'Amarillo', semR ? 'Atención mayor' : 'Atención amarilla') + '</b></div>' +
         '<div><small>Fase predominante · Mes</small><b>' + fase + ' · ' + M.u.mesCorto(mes) + '</b></div>' +
-        '<div class="atajos-ir" style="grid-column:1/-1">' + UI.ir('delito', { delito: M.grupoDe(tipo) }, 'Analizar ' + M.grupoDe(tipo).toLowerCase()) + UI.ir('inspeccion', { lugar: sel }, 'Ver los ' + rs.length + ' casos de este lugar') + UI.ir('recomendaciones', { grupo: M.grupoDe(tipo) }, 'Ver recomendaciones') + '</div>';
+        '<div class="atajos-ir">' + UI.ir('delito', { delito: M.grupoDe(tipo) }, 'Analizar ' + M.grupoDe(tipo).toLowerCase()) + UI.ir('inspeccion', { lugar: sel }, 'Ver los ' + rs.length + ' casos de este lugar') + UI.ir('recomendaciones', { grupo: M.grupoDe(tipo) }, 'Ver recomendaciones') + '</div>';
       MAPA.plano($('mapa'), L, { modo, sel, etiquetas: modo === 'puntos', alSeleccionar: clicPunto });
     } else $('info').innerHTML = '<div><small>Sin incidentes ubicables con estos filtros</small></div>';
 
     const porTipo = M.TIPOS.map(t => ({ et: M.corto(t), v: L.filter(r => r.tipo === t).length, color: ['Consumo de alcohol o drogas', 'Violencia (riña o agresión)'].includes(t) ? G.COL.amar : G.COL.rojo }));
-    $('distrib').innerHTML = '<div class="tit"><div><small>DISTRIBUCIÓN</small><h2>Incidentes por categoría</h2></div><b style="font-size:20px;color:var(--guinda)">' + K.total + '</b></div><div class="cuerpo">' +
-      '<div id="bar-tipos">' + G.barras(porTipo, null, 120) + '</div><p class="nota" style="margin:4px 0 0">Selecciona una categoría para analizarla.</p>' + '<div class="leyenda" style="margin-top:8px"><span><i style="background:' + G.COL.rojo + '"></i>Atención mayor</span><span><i style="background:' + G.COL.amar + '"></i>Atención amarilla</span></div></div>';
-    $('horas').innerHTML = '<div class="tit"><div><small>POR HORA DEL DÍA</small><h2>Horario crítico</h2></div><span class="chip np n-alto">' + K.franjaCritica + '</span></div><div class="cuerpo">' +
-      G.columnas(M.FRANJAS.map(fr => ({ et: fr.slice(0, 2), v: K.franjas[fr] }))) +
-      '<div class="destacado">' + I.reloj + 'Franja con mayor incidencia: ' + K.franjaCritica + ' · ' + K.franjaCriticaN + ' incidentes</div></div>';
-
-    $('bar-tipos').querySelectorAll('.barra').forEach((b, i) => { const h = UI.enlace('delito', { delito: M.grupoDe(M.TIPOS[i]) }); if (h) { b.style.cursor = 'pointer'; b.onclick = () => location.href = h; } });
     const serie = M.serieMensual(L, f.desde, f.hasta);
-    $('extra').innerHTML =
-      UI.tarjetaG('TENDENCIA', 'Incidentes por mes', G.linea(serie, { W: 360, H: 170 })) +
-      UI.tarjetaG('ÁMBITO', 'Interno y externo', G.dona([{ et: 'Interno', v: K.interno, color: G.COL.guinda }, { et: 'Externo', v: K.externo, color: G.COL.guinda2 }])) +
-      UI.tarjetaG('A QUIÉN', 'Por tipo de afectado', G.barras(M.AFECTADOS.map(a => ({ et: a, v: L.filter(r => r.afectado === a).length })), G.COL.guinda, 80) + '<p class="nota" style="margin-top:8px">' + I.candado + 'Solo cifras agregadas, sin datos personales.</p>');
+    $('estad').innerHTML = UI.seccion('Estadísticas', 'Distribución de los incidentes del periodo con los filtros aplicados.', [
+      UI.tarjetaG('DISTRIBUCIÓN', 'Incidentes por categoría', '<div id="bar-tipos">' + G.barras(porTipo, null, 120) + '</div><p class="nota" style="margin:4px 0 0">Selecciona una categoría para analizarla.</p>' +
+        '<div class="leyenda" style="margin-top:8px"><span><i style="background:' + G.COL.rojo + '"></i>Atención mayor</span><span><i style="background:' + G.COL.amar + '"></i>Atención amarilla</span></div>', '<b style="font-size:20px;color:var(--guinda)">' + K.total + '</b>'),
+      UI.tarjetaG('POR HORA DEL DÍA', 'Horario crítico', G.columnas(M.FRANJAS.map(fr => ({ et: fr.slice(0, 2), v: K.franjas[fr] }))) +
+        '<div class="destacado">' + I.reloj + 'Franja con mayor incidencia: ' + K.franjaCritica + ' · ' + K.franjaCriticaN + ' incidentes</div>', '<span class="chip np n-alto">' + K.franjaCritica + '</span>'),
+      UI.tarjetaG('TENDENCIA', 'Incidentes por mes', G.linea(serie, { W: 360, H: 170 })),
+      UI.tarjetaG('ÁMBITO', 'Interno y externo', G.dona([{ et: 'Interno', v: K.interno, color: G.COL.guinda }, { et: 'Externo', v: K.externo, color: G.COL.guinda2 }])),
+      UI.tarjetaG('A QUIÉN', 'Por tipo de afectado', G.barras(M.AFECTADOS.map(a => ({ et: a, v: L.filter(r => r.afectado === a).length })), G.COL.guinda, 80) + '<p class="nota" style="margin-top:8px">' + I.candado + 'Solo cifras agregadas, sin datos personales.</p>')
+    ]);
+    $('bar-tipos').querySelectorAll('.barra').forEach((b, i) => { const h = UI.enlace('delito', { delito: M.grupoDe(M.TIPOS[i]) }); if (h) { b.style.cursor = 'pointer'; b.onclick = () => location.href = h; } });
   }
 
   $('modo').querySelectorAll('button').forEach(b => b.onclick = () => { modo = b.dataset.m; $('modo').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); pintar(); });
