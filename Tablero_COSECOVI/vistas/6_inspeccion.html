@@ -156,7 +156,7 @@
       F.querySelectorAll('.subtabs button').forEach(b => b.onclick = () => { fichaTab = b.dataset.t; pintarFicha(); });
       if ($('b-canal')) $('b-canal').onclick = () => modalCanal(r);
       if ($('b-cerrar')) $('b-cerrar').onclick = () => modalCierre(r);
-      if ($('resp')) $('resp').onclick = () => { const cn = r.canal.slice(); cn[3] = ['2026-12-31', 'Respuesta registrada por la coordinación.']; M.modificar(r.cos, { canal: cn }); M.evento(ROL.clave, 'Registro de respuesta de instancia', r.cos, M.DESTINOS[cn[0]]); UI.aviso('Respuesta registrada. Ya se puede cerrar el caso.'); pintarFicha(); };
+      if ($('resp')) $('resp').onclick = () => { const cn = r.canal.slice(); cn[3] = [u.iso(new Date()), 'Respuesta registrada por la coordinación.']; M.modificar(r.cos, { canal: cn }); M.evento(ROL.clave, 'Registro de respuesta de instancia', r.cos, M.DESTINOS[cn[0]]); UI.aviso('Respuesta registrada. Ya se puede cerrar el caso.'); pintarFicha(); };
     }
     F.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => seleccionar(b.dataset.exp));
     F.querySelectorAll('[data-revelar]').forEach(b => b.onclick = () => { revelado[b.dataset.revelar] = 1; M.evento(ROL.clave, 'Consulta de dato cifrado', b.dataset.revelar, 'Persona involucrada y descripción'); UI.aviso('Consulta de dato cifrado registrada en la bitácora automática.'); pintarFicha(); });
@@ -167,7 +167,7 @@
     const sig = 'OF-COSECOVI-2026-' + String(Math.max(...M.REPORTES.filter(x => x.canal).map(x => +x.canal[1].slice(-3))) + 1).padStart(3, '0');
     const v = UI.modal('Registrar canalización · ' + r.cos,
       '<div class="campo"><label>Destino <span class="req">*</span></label><select id="m-dest">' + UI.opts(Object.keys(M.DESTINOS).map(k => [k, M.DESTINOS[k]]), 'DG') + '</select></div>' +
-      '<div class="dos-campos"><div class="campo"><label>Fecha</label><input type="date" id="m-fecha" value="2026-12-31"></div><div class="campo"><label>Número de oficio</label><input id="m-of" value="' + sig + '"></div></div>' +
+      '<div class="dos-campos"><div class="campo"><label>Fecha</label><input type="date" id="m-fecha" value="' + u.iso(new Date()) + '"></div><div class="campo"><label>Número de oficio</label><input id="m-of" value="' + sig + '"></div></div>' +
       '<p class="nota">' + I.enviar + 'El modo siempre es por oficio. La fase pasa a Canalizado.</p>',
       '<button class="btn" data-cerrar>Cancelar</button><button class="btn lleno" id="m-ok">Registrar</button>');
     v.querySelector('#m-ok').onclick = () => { const cn = [v.querySelector('#m-dest').value, v.querySelector('#m-of').value, v.querySelector('#m-fecha').value, null]; M.modificar(r.cos, { canal: cn, fase: 'Canalizado' }); M.evento(ROL.clave, 'Cambio de fase', r.cos, 'En atención COSECOVI → Canalizado · ' + cn[1]); v.remove(); UI.aviso('Canalización registrada en la ruta del caso y en la bitácora automática.'); pintarTabla(); pintarFicha(); };
@@ -185,7 +185,7 @@
     v.querySelector('#m-ok').onclick = () => {
       const q = v.querySelector('#m-que').value.trim(), a = v.querySelector('#m-ac').value.trim();
       v.querySelector('#mc-que').classList.toggle('error', !q); v.querySelector('#mc-ac').classList.toggle('error', !a); if (!q || !a) { M.evento(ROL.clave, 'Intento de cierre', r.cos, 'Sin qué sucedió o sin Acuerdo COSECOVI', 'Rechazado'); return; }
-      const ant = r.fase, cmb = { cierre: '2026-12-31', sesion: v.querySelector('#m-ses').value, fase: 'Cerrado', sucedio: q, acuerdoTexto: a };
+      const ant = r.fase, cmb = { cierre: u.iso(new Date()), sesion: v.querySelector('#m-ses').value, fase: 'Cerrado', sucedio: q, acuerdoTexto: a };
       if (v.querySelector('#m-al').value !== 'Ninguna') cmb.med_al = v.querySelector('#m-al').value; if (v.querySelector('#m-pr').value !== 'Ninguna') cmb.med_prof = v.querySelector('#m-pr').value;
       M.modificar(r.cos, cmb); M.evento(ROL.clave, 'Cambio de fase', r.cos, ant + ' → Cerrado');
       v.remove(); UI.aviso('Caso cerrado con su Acuerdo COSECOVI.'); pintarTabla(); pintarFicha();

@@ -156,7 +156,7 @@
       '<section class="tarjeta form"><div id="msg"></div>' +
         '<div class="g2">' + campo('num', 'Número de reporte', '<input id="num" disabled value="Se asignará al guardar (' + sig + ')">') +
           campo('fase0', 'Fase inicial', '<input disabled value="En atención COSECOVI">') + '</div>' +
-        '<div class="bloque"><h3>CUÁNDO</h3><div class="g2">' + campo('fecha', 'Fecha del incidente', '<input type="date" id="fecha" max="2026-12-31">', 1) + campo('hora', 'Hora del incidente', '<input type="time" id="hora">', 1) + '</div></div>' +
+        '<div class="bloque"><h3>CUÁNDO</h3><div class="g2">' + campo('fecha', 'Fecha del incidente', '<input type="date" id="fecha" max="' + u.iso(new Date()) + '">', 1) + campo('hora', 'Hora del incidente', '<input type="time" id="hora">', 1) + '</div></div>' +
         '<div class="bloque"><h3>QUÉ</h3><div class="g2">' + campo('tipo', 'Tipo de incidente', sel('tipo', M.TIPOS, 'Selecciona un tipo de incidente'), 1) +
           campo('nivel', 'Nivel de riesgo', '<div class="radios"><label><input type="radio" name="nivel" value="Alto">' + UI.icSem('Rojo') + 'Alto</label><label><input type="radio" name="nivel" value="Medio">' + UI.icSem('Amarillo') + 'Medio</label></div>', 1) + '</div>' +
           campo('desc', 'Descripción del incidente <span class="cifrado">' + I.candado + 'Dato cifrado</span>', '<textarea id="desc" placeholder="Lo que comentó la persona afectada y una descripción general del hecho, en neutro. No es el Acuerdo COSECOVI."></textarea>', 1) + '</div>' +

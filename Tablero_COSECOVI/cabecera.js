@@ -95,7 +95,7 @@
       '<div class="grupo" id="g-rango"' + (esMes ? ' hidden' : '') + '>Desde <select id="g-desde" aria-label="Desde">' + opt(estado.desde) + '</select> hasta <select id="g-hasta" aria-label="Hasta">' + opt(estado.hasta) + '</select></div>' +
       '<div class="atajos" id="g-atajos">' + [1, 3, 6, 12].map(k => '<button data-k="' + k + '" class="' + ((estado.hasta === ULT && (k === n || (k === 12 && n === MESES.length))) ? 'on' : '') + '">' + k + (k === 1 ? ' mes' : '') + '</button>').join('') + '</div>' +
       '<span class="et" style="margin-left:8px">ZONA</span><select id="g-zona" aria-label="Zona"><option value="">Todas las zonas</option>' + M.ZONAS.map(z => '<option' + (z === estado.zona ? ' selected' : '') + '>' + z + '</option>').join('') + '</select>' +
-      '<span class="actual"><span class="punto-verde"></span>Actualizado: 31 dic 2026</span>' +
+      '<span class="actual"><span class="punto-verde"></span>Actualizado: ' + M.u.fmtFH(new Date()) + '</span>' +
       '</div>';
   }
   function cambiarPeriodo(desde, hasta, zona) {

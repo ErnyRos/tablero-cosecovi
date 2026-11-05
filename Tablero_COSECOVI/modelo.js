@@ -85,8 +85,8 @@
   const guardarS = () => { try { localStorage.setItem(CLAVE, JSON.stringify(S)); } catch (e) {} };
   S.nuevos.forEach(r => REPORTES.push(Object.assign({}, r)));
   Object.keys(S.cambios).forEach(cos => { const r = REPORTES.find(x => x.cos === cos); if (r) Object.assign(r, S.cambios[cos]); });
-  /* Fecha simulada del prototipo: 31 dic 2026 con la hora actual */
-  const ahora = () => { const d = new Date(); return new Date(2026, 11, 31, d.getHours(), d.getMinutes(), d.getSeconds()); };
+  /* Fecha y hora reales del equipo: todo lo que hacen los usuarios se registra con ellas */
+  const ahora = () => new Date();
   function agregarReporte(r) { REPORTES.push(r); S.nuevos.push(r); guardarS(); }
   function modificar(cos, campos) { const r = REPORTES.find(x => x.cos === cos); Object.assign(r, campos); S.cambios[cos] = Object.assign(S.cambios[cos] || {}, campos); guardarS(); return r; }
   /* Los eventos se releen antes de escribir para no perder lo registrado en otra pestaña */
@@ -372,7 +372,9 @@
     add(aFecha('2026-09-24', '09:12'), 'COORD-01', 'Corrección de reporte', D.reportes.filter(r => r.clave === 'acoso_prof').pop().cos, 'Tipo de afectado: Personal → Alumno');
     releerEventos();
     S.eventos.forEach((e, i) => A.push({ i: i + 1, d: new Date(e.d), usuario: e.usuario, rol: USUARIOS[e.usuario] || 'Sistema', accion: e.accion, objeto: e.objeto, detalle: e.detalle, resultado: e.resultado, sesion: true }));
-    return A.sort((a, b) => (b.d - a.d) || ((b.i || 0) - (a.i || 0)));
+    /* El historial sintético solo llega hasta hoy: nada de la bitácora puede tener fecha futura */
+    const hoy = new Date();
+    return A.filter(e => e.sesion || e.d <= hoy).sort((a, b) => (b.d - a.d) || ((b.i || 0) - (a.i || 0)));
   }
 
   const CASO_VALIDADO = (D.reportes.find(r => r.clave === 'validado') || D.reportes[0]).cos;

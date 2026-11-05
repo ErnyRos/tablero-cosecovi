@@ -33,7 +33,7 @@
   let pag = 1;
 
   UI.filtros(
-    UI.fCampo('fecha', 'Fecha', '<input type="date" id="fecha" min="2026-01-01" max="2026-12-31">') +
+    UI.fCampo('fecha', 'Fecha', '<input type="date" id="fecha" min="2026-01-01" max="' + u.iso(new Date()) + '">') +
     UI.fSelect('tipo', 'Tipo de acción', Object.keys(TIPOS), '', 'Todas').replace('class="campo"', 'class="campo ancho"') +
     UI.fSelect('usuario', 'Usuario', Object.keys(M.USUARIOS).map(k => [k, k + ' · ' + M.USUARIOS[k]]), '', 'Todos').replace('class="campo"', 'class="campo ancho"') +
     '<label class="interruptor">Solo esta sesión del prototipo<input type="checkbox" id="solo"><i></i></label>' +
